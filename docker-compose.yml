@@ -1,0 +1,150 @@
+version: '3.8'
+
+services:
+  # Database for ERPNext
+  erpnext-db:
+    image: mariadb:10.6
+    environment:
+      MYSQL_ROOT_PASSWORD: vita_secure_2024
+      MYSQL_DATABASE: erpnext
+      MYSQL_USER: erpnext
+      MYSQL_PASSWORD: vita_secure_2024
+    volumes:
+      - erpnext_db_data:/var/lib/mysql
+    restart: unless-stopped
+
+  # Redis for ERPNext queues
+  erpnext-redis-queue:
+    image: redis:6-alpine
+    ports:
+      - "11311:6379"
+    restart: unless-stopped
+
+  # Redis for ERPNext cache
+  erpnext-redis-cache:
+    image: redis:6-alpine
+    ports:
+      - "13311:6379"
+    restart: unless-stopped
+
+  # ERPNext - Business Management
+  erpnext:
+    image: frappe/erpnext:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=erpnext-db
+      - DB_ROOT_PASSWORD=vita_secure_2024
+      - REDIS_QUEUE=redis://erpnext-redis-queue:6379
+      - REDIS_CACHE=redis://erpnext-redis-cache:6379
+    volumes:
+      - erpnext_sites:/home/frappe/frappe-bench/sites
+    depends_on:
+      - erpnext-db
+      - erpnext-redis-queue
+      - erpnext-redis-cache
+    restart: unless-stopped
+
+  # PostgreSQL for multiple services
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: VitaStrategies2024!PostgreSQL
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # Windmill - Workflow Automation
+  windmill:
+    image: ghcr.io/windmill-labs/windmill:main
+    ports:
+      - "8080:8000"
+    environment:
+      - DATABASE_URL=postgres://postgres:VitaStrategies2024!PostgreSQL@postgres:5432/postgres
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # Keycloak - Authentication
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    ports:
+      - "8180:8080"
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=WQoMn2/jMqTXcH/b93Me1MRw7fEXnrfkGfwwfrwV5gI=
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/postgres
+      - KC_DB_USERNAME=postgres
+      - KC_DB_PASSWORD=VitaStrategies2024!PostgreSQL
+    command: start-dev
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # Metabase - Analytics
+  metabase:
+    image: metabase/metabase:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - MB_DB_TYPE=postgres
+      - MB_DB_DBNAME=postgres
+      - MB_DB_PORT=5432
+      - MB_DB_USER=postgres
+      - MB_DB_PASS=VitaStrategies2024!PostgreSQL
+      - MB_DB_HOST=postgres
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # Appsmith - App Builder
+  appsmith:
+    image: appsmith/appsmith-ee:latest
+    ports:
+      - "8081:80"
+    environment:
+      - APPSMITH_ENCRYPTION_PASSWORD=zxfzAfzpRPSwq1hnjPrsrIzV18Zpv8DhpCAGqBKy0gc=
+      - APPSMITH_ENCRYPTION_SALT=vita-strategies-salt-2024
+    restart: unless-stopped
+
+  # Mattermost - Team Communication
+  mattermost:
+    image: mattermost/mattermost-enterprise-edition:latest
+    ports:
+      - "8065:8065"
+    environment:
+      - MM_SQLSETTINGS_DRIVERNAME=postgres
+      - MM_SQLSETTINGS_DATASOURCE=postgres://postgres:VitaStrategies2024!PostgreSQL@postgres:5432/postgres?sslmode=disable
+      - MM_SERVICESETTINGS_SITEURL=https://chat.vitastrategies.com
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # Grafana - Monitoring
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: VitaStrategies2024!Grafana
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
+
+  # Openbao - Secrets Management
+  openbao:
+    image: openbao/openbao:latest
+    ports:
+      - "8200:8200"
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=mSgAS7Zj14d+K0YUUkaBEnDGBQNcZJhX6LvIA5TuwO0=
+      - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+    cap_add:
+      - IPC_LOCK
+    restart: unless-stopped
+
+volumes:
+  erpnext_sites:
+  erpnext_db_data:
+  postgres_data:
