@@ -53,17 +53,38 @@ resource "google_storage_bucket_iam_member" "vm_bucket_access" {
   member = "serviceAccount:${google_service_account.vm_service_account.email}"
 }
 
-# Grant access to new WordPress bucket
-resource "google_storage_bucket_iam_member" "vm_wordpress_bucket_access" {
-  bucket = google_storage_bucket.wordpress.name
+# Grant access to all microservices buckets
+resource "google_storage_bucket_iam_member" "vm_microservices_bucket_access" {
+  for_each = google_storage_bucket.microservices_buckets
+  
+  bucket = each.value.name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.vm_service_account.email}"
+}
+
+# ============================================================================
+# CLOUD SQL ACCESS
+# ============================================================================
+
+# Grant Cloud SQL client access to VM service account
+resource "google_project_iam_member" "vm_cloudsql_access" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.vm_service_account.email}"
+}
+
+# Grant Cloud SQL instance user access
+resource "google_project_iam_member" "vm_cloudsql_instance_user" {
+  project = var.project_id
+  role    = "roles/cloudsql.instanceUser"
+  member  = "serviceAccount:${google_service_account.vm_service_account.email}"
 }
 
 # ============================================================================
 # BUILD STATUS
 # ============================================================================
 # ✅ COMPLETE: VM service account with minimal permissions
-# ✅ COMPLETE: Storage access for all 6 buckets
+# ✅ COMPLETE: Storage access for all 13 buckets (5 existing + 8 new)
+# ✅ COMPLETE: Cloud SQL database access permissions
 # ✅ COMPLETE: Logging and monitoring permissions
-# 🚀 READY: For secure VM deployment
+# 🚀 READY: For secure VM and database deployment

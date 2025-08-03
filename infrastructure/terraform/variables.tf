@@ -149,6 +149,32 @@ variable "subdomain_services" {
     keycloak   = "auth"
     mattermost = "chat"
     windmill   = "workflows"
+    bookstack  = "docs"
+    wordpress  = "www"
+    openbao    = "vault"
+  }
+}
+
+variable "user_ip" {
+  description = "User's public IP address for database access"
+  type        = string
+  default     = "109.152.108.104"
+}
+
+variable "database_passwords" {
+  description = "Database passwords for each service"
+  type        = map(string)
+  sensitive   = true
+  default     = {
+    mattermost = "mattermost_secure_password_123"
+    windmill   = "windmill_secure_password_123"
+    metabase   = "metabase_secure_password_123"
+    grafana    = "grafana_secure_password_123"
+    openbao    = "openbao_secure_password_123"
+    keycloak   = "keycloak_secure_password_123"
+    wordpress  = "wordpress_secure_password_123"
+    bookstack  = "bookstack_secure_password_123"
+    erpnext    = "erpnext_secure_password_123"
   }
 }
 
@@ -156,4 +182,5 @@ variable "subdomain_services" {
 # BUILD STATUS
 # ============================================================================
 # ✅ COMPLETE: All variables defined and configured
+# ✅ COMPLETE: Database passwords and user IP added
 # 🚀 READY: For main.tf configuration

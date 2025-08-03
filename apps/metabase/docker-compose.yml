@@ -1,0 +1,136 @@
+version: '3.8'
+
+services:
+  # Metabase Business Intelligence Platform
+  metabase:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: metabase-server
+    hostname: metabase
+    restart: unless-stopped
+    
+    # Environment variables
+    environment:
+      # Database configuration
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: postgres
+      MB_DB_PORT: 5432
+      MB_DB_DBNAME: metabase
+      MB_DB_USER: metabase_user
+      MB_DB_PASS: ${METABASE_DB_PASSWORD}
+      
+      # Application configuration
+      MB_SITE_NAME: "Vita Strategies Analytics"
+      MB_SITE_URL: https://analytics.vitastrategies.com
+      MB_ADMIN_EMAIL: ${METABASE_ADMIN_EMAIL}
+      MB_ENCRYPTION_SECRET_KEY: ${METABASE_ENCRYPTION_KEY}
+      
+      # Security settings
+      MB_SESSION_COOKIES: "true"
+      MB_ANON_TRACKING_ENABLED: "false"
+      MB_CHECK_FOR_UPDATES: "false"
+      
+      # SAML/SSO configuration
+      MB_SAML_ENABLED: ${METABASE_SAML_ENABLED:-false}
+      MB_SAML_IDENTITY_PROVIDER_URI: ${KEYCLOAK_SAML_URI:-}
+      MB_SAML_APPLICATION_NAME: "Metabase Analytics"
+      
+      # Email configuration
+      MB_EMAIL_SMTP_HOST: ${SMTP_HOST:-}
+      MB_EMAIL_SMTP_PORT: ${SMTP_PORT:-587}
+      MB_EMAIL_SMTP_SECURITY: tls
+      MB_EMAIL_SMTP_USERNAME: ${SMTP_USERNAME:-}
+      MB_EMAIL_SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MB_EMAIL_FROM_ADDRESS: ${METABASE_ADMIN_EMAIL}
+      
+      # Performance settings
+      JAVA_OPTS: >-
+        -server
+        -Xms1g
+        -Xmx3g
+        -XX:+UseG1GC
+        -XX:MaxGCPauseMillis=200
+        -XX:+DisableExplicitGC
+        -Djava.awt.headless=true
+        -Dfile.encoding=UTF-8
+    
+    # Port mappings
+    ports:
+      - "3000:3000"
+    
+    # Volume mounts
+    volumes:
+      - metabase_data:/opt/metabase/data
+      - metabase_logs:/var/log/metabase
+      - metabase_plugins:/opt/metabase/plugins
+      - ./scripts:/opt/metabase/scripts:ro
+    
+    # Network configuration
+    networks:
+      - metabase_network
+      - postgres_network
+    
+    # Dependency management
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    # Health check
+    healthcheck:
+      test: ["/opt/metabase/healthcheck.sh"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 120s
+    
+    # Labels
+    labels:
+      - "service.name=metabase"
+      - "service.description=Business Intelligence Platform"
+
+  # PostgreSQL Database for Metabase
+  postgres:
+    image: postgres:15-alpine
+    container_name: metabase-postgres
+    hostname: postgres
+    restart: unless-stopped
+    
+    environment:
+      POSTGRES_DB: metabase
+      POSTGRES_USER: metabase_user
+      POSTGRES_PASSWORD: ${METABASE_DB_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    
+    networks:
+      - postgres_network
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metabase_user -d metabase"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+# Named volumes
+volumes:
+  metabase_data:
+    driver: local
+  metabase_logs:
+    driver: local
+  metabase_plugins:
+    driver: local
+  postgres_data:
+    driver: local
+
+# Networks
+networks:
+  metabase_network:
+    driver: bridge
+  postgres_network:
+    driver: bridge
+    internal: true

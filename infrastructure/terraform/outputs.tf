@@ -94,18 +94,64 @@ output "service_urls" {
     wordpress  = "https://${var.domain_name}"
     erpnext    = "https://erp.${var.domain_name}"
     metabase   = "https://analytics.${var.domain_name}"
-    grafana    = "https://monitor.${var.domain_name}"
+    grafana    = "https://monitoring.${var.domain_name}"
     appsmith   = "https://apps.${var.domain_name}"
     keycloak   = "https://auth.${var.domain_name}"
     mattermost = "https://chat.${var.domain_name}"
     windmill   = "https://workflows.${var.domain_name}"
+    bookstack  = "https://docs.${var.domain_name}"
+    openbao    = "https://vault.${var.domain_name}"
   }
+}
+
+# ============================================================================
+# DATABASE CONNECTION INFO
+# ============================================================================
+
+output "database_connection_info" {
+  description = "Database connection information"
+  value = {
+    postgresql = {
+      instance_name = google_sql_database_instance.postgresql_primary.name
+      connection_name = google_sql_database_instance.postgresql_primary.connection_name
+      private_ip = google_sql_database_instance.postgresql_primary.private_ip_address
+      databases = ["mattermost", "windmill", "metabase", "grafana", "openbao", "keycloak"]
+    }
+    mysql = {
+      instance_name = google_sql_database_instance.mysql_primary.name
+      connection_name = google_sql_database_instance.mysql_primary.connection_name
+      private_ip = google_sql_database_instance.mysql_primary.private_ip_address
+      databases = ["wordpress", "bookstack"]
+    }
+    mariadb = {
+      instance_name = google_sql_database_instance.mariadb_erp.name
+      connection_name = google_sql_database_instance.mariadb_erp.connection_name
+      private_ip = google_sql_database_instance.mariadb_erp.private_ip_address
+      databases = ["erpnext"]
+    }
+  }
+  sensitive = true
+}
+
+output "storage_buckets" {
+  description = "All storage buckets for microservices"
+  value = merge(
+    {
+      for bucket in data.google_storage_bucket.existing_buckets : 
+      bucket.name => bucket.url
+    },
+    {
+      for bucket in google_storage_bucket.microservices_buckets : 
+      bucket.name => bucket.url
+    }
+  )
 }
 
 # ============================================================================
 # BUILD STATUS
 # ============================================================================
 # ✅ COMPLETE: All infrastructure outputs defined
-# ✅ COMPLETE: Connection information ready
-# ✅ COMPLETE: Service URLs configured
+# ✅ COMPLETE: Database connection information added
+# ✅ COMPLETE: Storage bucket URLs included
+# ✅ COMPLETE: Service URLs for all 10 microservices
 # 🚀 READY: For terraform deployment

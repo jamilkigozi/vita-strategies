@@ -1,0 +1,270 @@
+version: '3.8'
+
+# ERPNext Standalone Deployment
+# For development and testing purposes
+
+services:
+  # ERPNext Application
+  erpnext:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: erpnext-app
+    hostname: erpnext
+    restart: unless-stopped
+    
+    # Port mapping for development
+    ports:
+      - "8000:8000"  # ERPNext web interface
+      - "9000:9000"  # Socket.IO (if needed)
+    
+    # Environment configuration
+    environment:
+      # Database configuration
+      DB_HOST: erpnext-db
+      DB_PORT: 3306
+      DB_NAME: erpnext_db
+      DB_USER: erpnext_user
+      DB_PASSWORD: ${DB_PASSWORD:-erpnext_secure_pass}
+      
+      # Redis configuration
+      REDIS_CACHE: redis://erpnext-redis:6379/0
+      REDIS_QUEUE: redis://erpnext-redis:6379/1
+      REDIS_SOCKETIO: redis://erpnext-redis:6379/2
+      
+      # ERPNext configuration
+      SITE_NAME: ${SITE_NAME:-localhost}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      DEVELOPER_MODE: ${DEVELOPER_MODE:-0}
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-1}
+      FORCE_HTTPS: 0
+      
+      # Email configuration (optional)
+      MAIL_SERVER: ${MAIL_SERVER:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USE_TLS: ${MAIL_USE_TLS:-1}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      
+      # Backup configuration
+      BACKUP_SCHEDULE: "0 2 * * *"
+    
+    # Volume mounts
+    volumes:
+      - erpnext_sites:/home/frappe/frappe-bench/sites
+      - erpnext_logs:/var/log/erpnext
+      - erpnext_assets:/home/frappe/frappe-bench/sites/assets
+      - ./backups:/home/frappe/frappe-bench/sites/backups
+    
+    # Dependencies
+    depends_on:
+      erpnext-db:
+        condition: service_healthy
+      erpnext-redis:
+        condition: service_healthy
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "/home/frappe/healthcheck.sh"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 120s
+    
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    
+    # Networks
+    networks:
+      - erpnext-network
+
+  # MariaDB Database
+  erpnext-db:
+    image: mariadb:10.11
+    container_name: erpnext-database
+    hostname: erpnext-db
+    restart: unless-stopped
+    
+    # Environment configuration
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_secure_pass}
+      MYSQL_DATABASE: erpnext_db
+      MYSQL_USER: erpnext_user
+      MYSQL_PASSWORD: ${DB_PASSWORD:-erpnext_secure_pass}
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+    
+    # Configuration options
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --skip-character-set-client-handshake
+      --max_allowed_packet=256M
+      --innodb_buffer_pool_size=1G
+      --innodb_log_file_size=256M
+      --innodb_flush_log_at_trx_commit=1
+      --slow_query_log=1
+      --slow_query_log_file=/var/log/mysql/slow.log
+      --long_query_time=2
+    
+    # Volume mounts
+    volumes:
+      - erpnext_db_data:/var/lib/mysql
+      - erpnext_db_logs:/var/log/mysql
+      - ./config/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$MYSQL_ROOT_PASSWORD"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    
+    # Networks
+    networks:
+      - erpnext-network
+
+  # Redis Cache and Queue
+  erpnext-redis:
+    image: redis:7.2-alpine
+    container_name: erpnext-cache
+    hostname: erpnext-redis
+    restart: unless-stopped
+    
+    # Configuration
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    
+    # Volume mounts
+    volumes:
+      - erpnext_redis_data:/data
+      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+        reservations:
+          memory: 256M
+          cpus: '0.1'
+    
+    # Networks
+    networks:
+      - erpnext-network
+
+  # Nginx Reverse Proxy (Optional for standalone)
+  erpnext-proxy:
+    image: nginx:1.25-alpine
+    container_name: erpnext-proxy
+    hostname: erpnext-proxy
+    restart: unless-stopped
+    
+    # Port mapping
+    ports:
+      - "80:80"
+      - "443:443"
+    
+    # Configuration
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - erpnext_assets:/var/www/assets:ro
+    
+    # Dependencies
+    depends_on:
+      - erpnext
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    
+    # Networks
+    networks:
+      - erpnext-network
+
+# Named volumes for data persistence
+volumes:
+  erpnext_sites:
+    driver: local
+    name: erpnext_sites_data
+  
+  erpnext_logs:
+    driver: local
+    name: erpnext_logs_data
+  
+  erpnext_assets:
+    driver: local
+    name: erpnext_assets_data
+  
+  erpnext_db_data:
+    driver: local
+    name: erpnext_database_data
+  
+  erpnext_db_logs:
+    driver: local
+    name: erpnext_database_logs
+  
+  erpnext_redis_data:
+    driver: local
+    name: erpnext_redis_data
+
+# Custom network for service communication
+networks:
+  erpnext-network:
+    driver: bridge
+    name: erpnext_network
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24

@@ -1,0 +1,291 @@
+version: '3.8'
+
+# Windmill Standalone Deployment
+# For development and testing purposes
+
+services:
+  # Windmill Application
+  windmill:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: windmill-app
+    hostname: windmill
+    restart: unless-stopped
+    
+    # Port mapping for development
+    ports:
+      - "8000:8000"  # Windmill web interface
+      - "8001:8001"  # Metrics endpoint
+    
+    # Environment configuration
+    environment:
+      # Database configuration
+      DATABASE_URL: postgresql://windmill_user:${DB_PASSWORD:-windmill_secure_pass}@windmill-db:5432/windmill_db
+      
+      # Redis configuration
+      REDIS_URL: redis://windmill-redis:6379
+      
+      # Windmill configuration
+      WINDMILL_SERVER_URL: http://windmill:8000
+      WINDMILL_FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8000}
+      WINDMILL_BASE_URL: ${BASE_URL:-http://localhost:8000}
+      WINDMILL_COOKIE_DOMAIN: ${COOKIE_DOMAIN:-localhost}
+      
+      # Worker configuration
+      NUM_WORKERS: ${NUM_WORKERS:-4}
+      WINDMILL_WORKER_TAGS: ${WORKER_TAGS:-}
+      SLEEP_QUEUE: 50
+      
+      # Security configuration
+      DISABLE_NUSER: "true"
+      KEEP_JOB_DIR: "false"
+      
+      # Logging configuration
+      JSON_FMT: "true"
+      RUST_BACKTRACE: 1
+      RUST_LOG: info
+      MAX_LOG_LENGTH: 500000
+      
+      # Metrics configuration
+      DISABLE_STATS: "false"
+      METRICS_ADDR: "0.0.0.0:8001"
+      
+      # Admin configuration
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@vitastrategies.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      
+      # Integration URLs (optional)
+      ERPNEXT_URL: ${ERPNEXT_URL:-}
+      MYSQL_URL: ${MYSQL_URL:-}
+      GCS_BUCKET: ${GCS_BUCKET:-vita-windmill-storage}
+    
+    # Volume mounts
+    volumes:
+      - windmill_data:/opt/windmill/data
+      - windmill_logs:/var/log/windmill
+      - windmill_workflows:/opt/windmill/workflows
+      - ./backups:/opt/windmill/backups
+      - ./scripts:/opt/windmill/scripts:ro
+      - ./config:/opt/windmill/config:ro
+    
+    # Dependencies
+    depends_on:
+      windmill-db:
+        condition: service_healthy
+      windmill-redis:
+        condition: service_healthy
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "/opt/windmill/healthcheck.sh"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 120s
+    
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+    
+    # Networks
+    networks:
+      - windmill-network
+
+  # PostgreSQL Database
+  windmill-db:
+    image: postgres:15-alpine
+    container_name: windmill-database
+    hostname: windmill-db
+    restart: unless-stopped
+    
+    # Environment configuration
+    environment:
+      POSTGRES_DB: windmill_db
+      POSTGRES_USER: windmill_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-windmill_secure_pass}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      
+    # Configuration options
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+      -c log_statement=all
+      -c log_duration=on
+      -c log_min_duration_statement=1000
+    
+    # Volume mounts
+    volumes:
+      - windmill_db_data:/var/lib/postgresql/data
+      - windmill_db_logs:/var/log/postgresql
+      - ./config/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "windmill_user", "-d", "windmill_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    
+    # Networks
+    networks:
+      - windmill-network
+
+  # Redis Cache and Queue
+  windmill-redis:
+    image: redis:7.2-alpine
+    container_name: windmill-cache
+    hostname: windmill-redis
+    restart: unless-stopped
+    
+    # Configuration
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 1gb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --tcp-keepalive 300
+      --timeout 0
+      --tcp-backlog 511
+    
+    # Volume mounts
+    volumes:
+      - windmill_redis_data:/data
+      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.25'
+        reservations:
+          memory: 512M
+          cpus: '0.1'
+    
+    # Networks
+    networks:
+      - windmill-network
+
+  # Nginx Reverse Proxy (Optional for standalone)
+  windmill-proxy:
+    image: nginx:1.25-alpine
+    container_name: windmill-proxy
+    hostname: windmill-proxy
+    restart: unless-stopped
+    
+    # Port mapping
+    ports:
+      - "80:80"
+      - "443:443"
+    
+    # Configuration
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    
+    # Dependencies
+    depends_on:
+      - windmill
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    
+    # Networks
+    networks:
+      - windmill-network
+
+# Named volumes for data persistence
+volumes:
+  windmill_data:
+    driver: local
+    name: windmill_app_data
+  
+  windmill_logs:
+    driver: local
+    name: windmill_logs_data
+  
+  windmill_workflows:
+    driver: local
+    name: windmill_workflows_data
+  
+  windmill_db_data:
+    driver: local
+    name: windmill_database_data
+  
+  windmill_db_logs:
+    driver: local
+    name: windmill_database_logs
+  
+  windmill_redis_data:
+    driver: local
+    name: windmill_redis_data
+
+# Custom network for service communication
+networks:
+  windmill-network:
+    driver: bridge
+    name: windmill_network
+    ipam:
+      config:
+        - subnet: 172.21.0.0/24

@@ -1,0 +1,360 @@
+version: '3.8'
+
+services:
+  # OpenBao Secrets Management Platform
+  openbao:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: openbao-server
+    hostname: openbao
+    restart: unless-stopped
+    
+    # Security context
+    user: "1000:1000"
+    read_only: false
+    
+    # Capability management
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+      - seccomp:unconfined
+    
+    # Environment variables
+    environment:
+      # Core OpenBao configuration
+      OPENBAO_ADDR: "http://127.0.0.1:8200"
+      OPENBAO_API_ADDR: "https://vault.vitastrategies.com:8200"
+      OPENBAO_CLUSTER_ADDR: "https://vault.vitastrategies.com:8201"
+      OPENBAO_CONFIG_PATH: "/opt/openbao/config/openbao.hcl"
+      OPENBAO_LOG_LEVEL: "INFO"
+      OPENBAO_LOG_FORMAT: "json"
+      OPENBAO_LOG_FILE: "/var/log/openbao/openbao.log"
+      OPENBAO_AUDIT_FILE: "/opt/openbao/audit/audit.log"
+      OPENBAO_UI: "true"
+      OPENBAO_DISABLE_MLOCK: "true"
+      SKIP_CHOWN: "true"
+      SKIP_SETCAP: "true"
+      
+      # Database configuration
+      POSTGRES_URL: "postgres://openbao_user:${OPENBAO_DB_PASSWORD}@postgres:5432/openbao?sslmode=require"
+      
+      # GCP KMS configuration
+      GCP_KMS_PROJECT: "${GCP_PROJECT_ID}"
+      GCP_KMS_REGION: "us-central1"
+      GCP_KMS_KEY_RING: "openbao-keyring"
+      GCP_KMS_CRYPTO_KEY: "openbao-key"
+      GOOGLE_APPLICATION_CREDENTIALS: "/opt/openbao/config/gcp-kms-key.json"
+      OPENBAO_SEAL_TYPE: "gcpckms"
+      
+      # Clustering configuration
+      OPENBAO_CLUSTER_NAME: "vita-strategies"
+      OPENBAO_RAFT_NODE_ID: "openbao-1"
+      OPENBAO_RAFT_PATH: "/opt/openbao/data/raft"
+      
+      # Security configuration
+      OPENBAO_TLS_CERT_FILE: "/opt/openbao/config/tls.crt"
+      OPENBAO_TLS_KEY_FILE: "/opt/openbao/config/tls.key"
+      OPENBAO_TLS_CA_FILE: "/opt/openbao/config/ca.crt"
+      OPENBAO_TLS_MIN_VERSION: "tls12"
+      OPENBAO_DISABLE_SEALWRAP: "false"
+      
+      # Performance settings
+      OPENBAO_MAX_LEASE_TTL: "768h"
+      OPENBAO_DEFAULT_LEASE_TTL: "24h"
+      OPENBAO_DISABLE_CACHE: "false"
+      OPENBAO_DISABLE_CLUSTERING: "false"
+      OPENBAO_DISABLE_PERFORMANCE_STANDBY: "false"
+      
+      # Admin user configuration
+      OPENBAO_ADMIN_USER: "${OPENBAO_ADMIN_USER:-admin}"
+      OPENBAO_ADMIN_PASSWORD: "${OPENBAO_ADMIN_PASSWORD}"
+      
+      # Health check configuration
+      HEALTH_CHECK_TIMEOUT: "10"
+      CRITICAL_THRESHOLD: "90"
+      WARNING_THRESHOLD: "75"
+    
+    # Port mappings
+    ports:
+      - "8200:8200"  # Main API port
+      - "8201:8201"  # Cluster communication port
+    
+    # Volume mounts
+    volumes:
+      # Persistent data storage
+      - openbao_data:/opt/openbao/data
+      - openbao_logs:/var/log/openbao
+      - openbao_audit:/opt/openbao/audit
+      - openbao_backup:/opt/openbao/backup
+      
+      # Configuration files
+      - ./config:/opt/openbao/config:ro
+      - ./policies:/opt/openbao/policies:ro
+      - ./scripts:/opt/openbao/scripts:ro
+      
+      # TLS certificates (if available)
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      
+      # GCP service account key
+      - ${GCP_SA_KEY_PATH:-./secrets/gcp-kms-key.json}:/opt/openbao/config/gcp-kms-key.json:ro
+      
+      # Local timezone
+      - /etc/localtime:/etc/localtime:ro
+    
+    # Network configuration
+    networks:
+      - openbao_network
+      - postgres_network
+    
+    # Dependency management
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    # Health check
+    healthcheck:
+      test: ["/opt/openbao/healthcheck.sh"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "openbao"
+    
+    # Labels for service discovery
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.openbao.rule=Host(`vault.vitastrategies.com`)"
+      - "traefik.http.routers.openbao.tls=true"
+      - "traefik.http.routers.openbao.tls.certresolver=letsencrypt"
+      - "traefik.http.services.openbao.loadbalancer.server.port=8200"
+      - "traefik.http.routers.openbao.middlewares=secure-headers@file"
+      - "service.name=openbao"
+      - "service.version=1.0.0"
+      - "service.description=OpenBao Secrets Management Platform"
+
+  # PostgreSQL Database for OpenBao storage
+  postgres:
+    image: postgres:15-alpine
+    container_name: openbao-postgres
+    hostname: postgres
+    restart: unless-stopped
+    
+    # Security context
+    user: postgres
+    
+    # Environment variables
+    environment:
+      POSTGRES_DB: openbao
+      POSTGRES_USER: openbao_user
+      POSTGRES_PASSWORD: ${OPENBAO_DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    
+    # Volume mounts
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/postgres-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - /etc/localtime:/etc/localtime:ro
+    
+    # Network configuration
+    networks:
+      - postgres_network
+    
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openbao_user -d openbao"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.3'
+        reservations:
+          memory: 256M
+          cpus: '0.1'
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "openbao-postgres"
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    
+    # Labels
+    labels:
+      - "service.name=openbao-postgres"
+      - "service.version=15"
+      - "service.description=PostgreSQL database for OpenBao"
+
+  # Redis for caching and session storage
+  redis:
+    image: redis:7-alpine
+    container_name: openbao-redis
+    hostname: redis
+    restart: unless-stopped
+    
+    # Security context
+    user: redis
+    
+    # Command with security configurations
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --appendonly yes
+      --appendfsync everysec
+      --auto-aof-rewrite-percentage 100
+      --auto-aof-rewrite-min-size 64mb
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --tcp-keepalive 60
+      --timeout 300
+    
+    # Volume mounts
+    volumes:
+      - redis_data:/data
+      - /etc/localtime:/etc/localtime:ro
+    
+    # Network configuration
+    networks:
+      - openbao_network
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.2'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+        tag: "openbao-redis"
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    
+    # Labels
+    labels:
+      - "service.name=openbao-redis"
+      - "service.version=7"
+      - "service.description=Redis cache for OpenBao"
+
+# Named volumes for data persistence
+volumes:
+  openbao_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/openbao
+  
+  openbao_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./logs
+  
+  openbao_audit:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./audit
+  
+  openbao_backup:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./backup
+  
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/postgres
+  
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/redis
+
+# Network definitions
+networks:
+  openbao_network:
+    driver: bridge
+    name: openbao_network
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: openbao0
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+  
+  postgres_network:
+    driver: bridge
+    name: postgres_network
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: postgres0
+      com.docker.network.bridge.enable_icc: "true"

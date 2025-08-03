@@ -1,5 +1,5 @@
 # Terraform Storage Resources  
-# Purpose: Define Cloud Storage buckets and policies
+# Purpose: Define Cloud Storage buckets for 12 microservices
 # Dependencies: main.tf project configuration
 
 # ============================================================================
@@ -20,18 +20,29 @@ data "google_storage_bucket" "existing_buckets" {
 }
 
 # ============================================================================
-# NEW BUCKET FOR WORDPRESS
+# NEW MICROSERVICES BUCKETS
 # ============================================================================
 
-# Create new WordPress bucket
-resource "google_storage_bucket" "wordpress" {
-  name     = "vita-strategies-wordpress-production"
+# Storage buckets for all microservices
+resource "google_storage_bucket" "microservices_buckets" {
+  for_each = toset([
+    "vita-strategies-wordpress-production",
+    "vita-strategies-mattermost-production",
+    "vita-strategies-workflows-production",
+    "vita-strategies-appsmith-production",
+    "vita-strategies-monitoring-production",
+    "vita-strategies-vault-production",
+    "vita-strategies-auth-production",
+    "vita-strategies-docs-production"
+  ])
+
+  name     = each.value
   location = var.region
 
   # Uniform bucket-level access
   uniform_bucket_level_access = true
 
-  # Versioning
+  # Versioning for data protection
   versioning {
     enabled = true
   }
@@ -46,7 +57,7 @@ resource "google_storage_bucket" "wordpress" {
     }
   }
 
-  # Labels
+  # Labels for organization
   labels = local.common_labels
 }
 

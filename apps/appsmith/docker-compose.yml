@@ -1,0 +1,339 @@
+version: '3.8'
+
+services:
+  # Appsmith Internal Tools Platform
+  appsmith:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: appsmith-server
+    hostname: appsmith
+    restart: unless-stopped
+    
+    # Environment variables
+    environment:
+      # Database configuration
+      APPSMITH_DB_HOST: postgres
+      APPSMITH_DB_PORT: 5432
+      APPSMITH_DB_NAME: appsmith
+      APPSMITH_DB_USERNAME: appsmith_user
+      APPSMITH_DB_PASSWORD: ${APPSMITH_DB_PASSWORD}
+      
+      # Redis configuration
+      APPSMITH_REDIS_URL: redis://redis:6379/0
+      
+      # Security configuration
+      APPSMITH_ENCRYPTION_PASSWORD: ${APPSMITH_ENCRYPTION_PASSWORD}
+      APPSMITH_ENCRYPTION_SALT: ${APPSMITH_ENCRYPTION_SALT}
+      APPSMITH_CUSTOM_DOMAIN: tools.vitastrategies.com
+      APPSMITH_DISABLE_TELEMETRY: true
+      APPSMITH_HIDE_WATERMARK: true
+      
+      # SMTP configuration
+      APPSMITH_MAIL_ENABLED: ${APPSMITH_MAIL_ENABLED:-true}
+      APPSMITH_MAIL_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      APPSMITH_MAIL_PORT: ${SMTP_PORT:-587}
+      APPSMITH_MAIL_USERNAME: ${SMTP_USERNAME:-}
+      APPSMITH_MAIL_PASSWORD: ${SMTP_PASSWORD:-}
+      APPSMITH_MAIL_FROM: ${APPSMITH_ADMIN_EMAIL:-tools@vitastrategies.com}
+      APPSMITH_REPLY_TO: ${APPSMITH_ADMIN_EMAIL:-tools@vitastrategies.com}
+      APPSMITH_MAIL_SMTP_TLS_ENABLED: true
+      APPSMITH_MAIL_SMTP_AUTH: true
+      
+      # SSO - OIDC configuration
+      APPSMITH_OAUTH2_OIDC_ENABLED: ${APPSMITH_OIDC_ENABLED:-false}
+      APPSMITH_OAUTH2_OIDC_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-}
+      APPSMITH_OAUTH2_OIDC_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
+      APPSMITH_OAUTH2_OIDC_RESPONSE_TYPE: code
+      APPSMITH_OAUTH2_OIDC_SCOPE: "openid email profile"
+      APPSMITH_OAUTH2_OIDC_ISSUER: ${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}
+      APPSMITH_OAUTH2_OIDC_AUTHORIZATION_URL: ${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/auth
+      APPSMITH_OAUTH2_OIDC_TOKEN_URL: ${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token
+      APPSMITH_OAUTH2_OIDC_USER_INFO_URL: ${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/userinfo
+      APPSMITH_OAUTH2_OIDC_JWK_SET_URL: ${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/certs
+      APPSMITH_OAUTH2_OIDC_USERNAME_ATTR: preferred_username
+      APPSMITH_OAUTH2_OIDC_EMAIL_ATTR: email
+      APPSMITH_OAUTH2_OIDC_NAME_ATTR: name
+      
+      # SAML configuration (alternative to OIDC)
+      APPSMITH_SAML_ENABLED: ${APPSMITH_SAML_ENABLED:-false}
+      APPSMITH_SAML_REDIRECT_URL: https://tools.vitastrategies.com/login/saml
+      APPSMITH_SAML_ENTITY_ID: appsmith
+      APPSMITH_SAML_METADATA_URL: ${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/saml/descriptor
+      APPSMITH_SAML_USERNAME_ATTR: http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress
+      APPSMITH_SAML_EMAIL_ATTR: http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress
+      APPSMITH_SAML_FIRST_NAME_ATTR: http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname
+      APPSMITH_SAML_LAST_NAME_ATTR: http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname
+      
+      # Feature flags
+      APPSMITH_FEATURE_TENANT_ISOLATION_ENABLED: false
+      APPSMITH_FEATURE_LINTING_ENABLED: true
+      APPSMITH_FEATURE_MULTIPLAYER_ENABLED: false
+      
+      # Security settings
+      APPSMITH_CONTENT_SECURITY_POLICY_ENABLED: true
+      APPSMITH_DISABLE_IFRAME_WIDGET_SANDBOX: false
+      APPSMITH_ALLOWED_FRAME_ANCESTORS: "'self'"
+      
+      # Marketplace and analytics (disabled for security)
+      APPSMITH_MARKETPLACE_ENABLED: false
+      APPSMITH_SEGMENT_KEY: ""
+      APPSMITH_INTERCOM_APP_ID: ""
+      APPSMITH_GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+      
+      # Performance settings
+      APPSMITH_HEAP_SIZE: "2g"
+      APPSMITH_JAVA_HEAP_SIZE: "2g"
+      JAVA_OPTS: "-Xms512m -Xmx2g -XX:+UseG1GC -XX:MaxGCPauseMillis=100"
+      
+      # Backup configuration
+      APPSMITH_BACKUP_ENABLED: true
+      APPSMITH_BACKUP_RETENTION_DAYS: 30
+      APPSMITH_BACKUP_SCHEDULE: "0 2 * * *"
+      
+      # Client settings
+      APPSMITH_CLIENT_LOG_LEVEL: ERROR
+      APPSMITH_SIGNUP_DISABLED: false
+      APPSMITH_SIGNUP_ALLOWED_DOMAINS: vitastrategies.com
+    
+    # Port mappings
+    ports:
+      - "80:80"
+      - "443:443"
+    
+    # Volume mounts
+    volumes:
+      - appsmith_data:/appsmith-stacks
+      - appsmith_logs:/var/log/appsmith
+      - ./config:/opt/appsmith/config:ro
+      - ./scripts:/opt/appsmith/scripts:ro
+      - ./templates:/appsmith-stacks/templates:ro
+    
+    # Network configuration
+    networks:
+      - appsmith_network
+      - postgres_network
+      - redis_network
+      - integration_network
+    
+    # Dependency management
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    
+    # Health check
+    healthcheck:
+      test: ["/opt/appsmith/scripts/healthcheck.sh", "quick"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 120s
+    
+    # Labels
+    labels:
+      - "service.name=appsmith"
+      - "service.description=Internal Tools Platform"
+      - "traefik.enable=true"
+      - "traefik.http.routers.appsmith.rule=Host(`tools.vitastrategies.com`)"
+      - "traefik.http.routers.appsmith.tls=true"
+
+  # PostgreSQL Database for Appsmith
+  postgres:
+    image: postgres:15-alpine
+    container_name: appsmith-postgres
+    hostname: postgres
+    restart: unless-stopped
+    
+    environment:
+      POSTGRES_DB: appsmith
+      POSTGRES_USER: appsmith_user
+      POSTGRES_PASSWORD: ${APPSMITH_DB_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=en_US.UTF-8 --lc-ctype=en_US.UTF-8"
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    
+    networks:
+      - postgres_network
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appsmith_user -d appsmith"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Redis for Session Storage and Caching
+  redis:
+    image: redis:7-alpine
+    container_name: appsmith-redis
+    hostname: redis
+    restart: unless-stopped
+    
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --requirepass ${REDIS_PASSWORD:-}
+    
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+    
+    networks:
+      - redis_network
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: appsmith-nginx
+    hostname: nginx
+    restart: unless-stopped
+    
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl:/etc/ssl:ro
+      - nginx_logs:/var/log/nginx
+    
+    ports:
+      - "8080:80"
+      - "8443:443"
+    
+    networks:
+      - appsmith_network
+    
+    depends_on:
+      - appsmith
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MongoDB (Optional - for advanced features)
+  mongodb:
+    image: mongo:6.0
+    container_name: appsmith-mongodb
+    hostname: mongodb
+    restart: unless-stopped
+    
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: appsmith
+    
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d:ro
+    
+    networks:
+      - postgres_network
+    
+    ports:
+      - "27017:27017"
+    
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # File Storage Service (MinIO)
+  minio:
+    image: minio/minio:latest
+    container_name: appsmith-minio
+    hostname: minio
+    restart: unless-stopped
+    
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      MINIO_DOMAIN: files.tools.vitastrategies.com
+    
+    command: server /data --console-address ":9001"
+    
+    volumes:
+      - minio_data:/data
+    
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    
+    networks:
+      - integration_network
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backup Service
+  backup:
+    image: postgres:15-alpine
+    container_name: appsmith-backup
+    restart: "no"
+    
+    environment:
+      PGPASSWORD: ${APPSMITH_DB_PASSWORD}
+    
+    volumes:
+      - appsmith_data:/appsmith-stacks:ro
+      - postgres_data:/postgres-data:ro
+      - ./backups:/backups
+      - ./scripts/backup.sh:/backup.sh:ro
+    
+    networks:
+      - postgres_network
+    
+    command: ["sh", "/backup.sh"]
+    
+    depends_on:
+      - postgres
+
+# Named volumes
+volumes:
+  appsmith_data:
+    driver: local
+  appsmith_logs:
+    driver: local
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  mongodb_data:
+    driver: local
+  minio_data:
+    driver: local
+  nginx_logs:
+    driver: local
+
+# Networks
+networks:
+  appsmith_network:
+    driver: bridge
+  postgres_network:
+    driver: bridge
+    internal: true
+  redis_network:
+    driver: bridge
+    internal: true
+  integration_network:
+    driver: bridge
