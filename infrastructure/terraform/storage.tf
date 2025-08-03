@@ -51,17 +51,6 @@ resource "google_storage_bucket" "wordpress" {
 }
 
 # ============================================================================
-# BUCKET ORGANIZATION
-# ============================================================================
-# Naming Convention: vita-strategies-{purpose}-{environment}
-# Examples:
-# - vita-strategies-erpnext-production
-# - vita-strategies-backups-production  
-# - vita-strategies-analytics-production
-# - vita-strategies-assets-production
-# - vita-strategies-team-files-production
-
-# ============================================================================
 # BUILD STATUS
 # ============================================================================
 # ✅ COMPLETE: Existing buckets imported as data sources
