@@ -3,7 +3,7 @@
 ## IDENTIFIED ISSUES
 
 ### 1. Region Inconsistencies
-- **Found**: `us-central1` hardcoded in multiple files
+- **Found**: Mixed region references in multiple files
 - **Should Be**: `europe-west2` (from variables.tf)
 - **Files Affected**: 15+ files
 

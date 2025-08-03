@@ -1,10 +1,6 @@
 # Terraform Variables
 # Purpose: Define all configurable parameters for infrastructure
-# Usage: Set values invariable "admin_ip" {
-  description = "Admin IP address for SSH access (CIDR format)"
-  type        = string
-  default     = "0.0.0.0/0"  # Replace with your IP in CIDR format
-}aform.tfvars or via command line
+# Usage: Set values in terraform.tfvars or via command line
 
 # ============================================================================
 # PROJECT CONFIGURATION
@@ -47,7 +43,7 @@ variable "environment" {
 variable "machine_type" {
   description = "GCP machine type for the main VM"
   type        = string
-  default     = "e2-standard-4"  # 4 vCPUs, 16GB RAM
+  default     = "e2-standard-4" # 4 vCPUs, 16GB RAM
 }
 
 variable "disk_size" {
@@ -85,9 +81,9 @@ variable "allowed_ports" {
 variable "bucket_names" {
   description = "List of storage bucket names"
   type        = list(string)
-  default     = [
+  default = [
     "vita-strategies-erpnext-production",
-    "vita-strategies-analytics-production", 
+    "vita-strategies-analytics-production",
     "vita-strategies-team-files-production",
     "vita-strategies-assets-production",
     "vita-strategies-data-backup-production",
@@ -114,7 +110,7 @@ variable "retention_days" {
 variable "admin_ip" {
   description = "Admin IP address for SSH access (CIDR format)"
   type        = string
-  default     = "0.0.0.0/0"  # Replace with your IP in CIDR format
+  default     = "0.0.0.0/0" # Replace with your IP in CIDR format
 }
 
 variable "ssh_public_key" {
@@ -145,9 +141,9 @@ variable "cloudflare_api_token" {
 variable "subdomain_services" {
   description = "Mapping of services to subdomains"
   type        = map(string)
-  default     = {
+  default = {
     erpnext    = "erp"
-    metabase   = "analytics" 
+    metabase   = "analytics"
     grafana    = "monitor"
     appsmith   = "apps"
     keycloak   = "auth"
@@ -162,14 +158,14 @@ variable "subdomain_services" {
 variable "user_ip" {
   description = "User's public IP address for database access"
   type        = string
-  default     = "0.0.0.0"  # Replace with your public IP address
+  default     = "0.0.0.0" # Replace with your public IP address
 }
 
 variable "database_passwords" {
   description = "Database passwords for each service"
   type        = map(string)
   sensitive   = true
-  default     = {
+  default = {
     mattermost = "mattermost_secure_password_123"
     windmill   = "windmill_secure_password_123"
     metabase   = "metabase_secure_password_123"

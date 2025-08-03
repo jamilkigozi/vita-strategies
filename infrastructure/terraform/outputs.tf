@@ -53,7 +53,7 @@ output "existing_buckets" {
   description = "List of existing storage buckets"
   value = [
     "vita-strategies-erpnext-production",
-    "vita-strategies-analytics-production", 
+    "vita-strategies-analytics-production",
     "vita-strategies-team-files-production",
     "vita-strategies-assets-production",
     "vita-strategies-data-backup-production"
@@ -112,22 +112,22 @@ output "database_connection_info" {
   description = "Database connection information"
   value = {
     postgresql = {
-      instance_name = google_sql_database_instance.postgresql_primary.name
+      instance_name   = google_sql_database_instance.postgresql_primary.name
       connection_name = google_sql_database_instance.postgresql_primary.connection_name
-      private_ip = google_sql_database_instance.postgresql_primary.private_ip_address
-      databases = ["mattermost", "windmill", "metabase", "grafana", "openbao", "keycloak"]
+      private_ip      = google_sql_database_instance.postgresql_primary.private_ip_address
+      databases       = ["mattermost", "windmill", "metabase", "grafana", "openbao", "keycloak"]
     }
     mysql = {
-      instance_name = google_sql_database_instance.mysql_primary.name
+      instance_name   = google_sql_database_instance.mysql_primary.name
       connection_name = google_sql_database_instance.mysql_primary.connection_name
-      private_ip = google_sql_database_instance.mysql_primary.private_ip_address
-      databases = ["wordpress", "bookstack"]
+      private_ip      = google_sql_database_instance.mysql_primary.private_ip_address
+      databases       = ["wordpress", "bookstack"]
     }
     mariadb = {
-      instance_name = google_sql_database_instance.mariadb_erp.name
+      instance_name   = google_sql_database_instance.mariadb_erp.name
       connection_name = google_sql_database_instance.mariadb_erp.connection_name
-      private_ip = google_sql_database_instance.mariadb_erp.private_ip_address
-      databases = ["erpnext"]
+      private_ip      = google_sql_database_instance.mariadb_erp.private_ip_address
+      databases       = ["erpnext"]
     }
   }
   sensitive = true
@@ -137,11 +137,11 @@ output "storage_buckets" {
   description = "All storage buckets for microservices"
   value = merge(
     {
-      for bucket in data.google_storage_bucket.existing_buckets : 
+      for bucket in data.google_storage_bucket.existing_buckets :
       bucket.name => bucket.url
     },
     {
-      for bucket in google_storage_bucket.microservices_buckets : 
+      for bucket in google_storage_bucket.microservices_buckets :
       bucket.name => bucket.url
     }
   )

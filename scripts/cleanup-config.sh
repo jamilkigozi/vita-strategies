@@ -34,10 +34,12 @@ replace_in_file() {
 echo ""
 echo "🔧 PHASE 1: Fix region references..."
 
-# Fix us-central1 to europe-west2
+# Fix mixed region references to europe-west2
 find /Users/millz./vita-strategies -name "*.tf" -o -name "*.yml" -o -name "*.yaml" -o -name "*.hcl" -o -name "*.md" -o -name "Dockerfile" | while read file; do
-    if grep -q "us-central1" "$file" 2>/dev/null; then
+    if grep -q "us-central1\|us-east1\|us-west1" "$file" 2>/dev/null; then
         replace_in_file "$file" "us-central1" "europe-west2"
+        replace_in_file "$file" "us-east1" "europe-west2"
+        replace_in_file "$file" "us-west1" "europe-west2"
     fi
 done
 
@@ -81,8 +83,8 @@ echo ""
 echo "🔧 PHASE 5: Validate configuration consistency..."
 
 # Check for remaining issues
-echo "Checking for remaining us-central1 references:"
-grep -r "us-central1" /Users/millz./vita-strategies --exclude-dir=.git || echo "  ✅ None found"
+echo "Checking for remaining region inconsistencies:"
+grep -r "us-central1\|us-east1\|us-west1" /Users/millz./vita-strategies --exclude-dir=.git --include="*.tf" --include="*.yml" --include="*.yaml" --include="*.hcl" --include="*.conf" || echo "  ✅ None found"
 
 echo ""
 echo "Checking for GCP_PROJECT_PLACEHOLDER references:"
@@ -92,7 +94,7 @@ echo ""
 echo "✅ CONFIGURATION CLEANUP COMPLETE!"
 echo ""
 echo "📋 SUMMARY:"
-echo "  - Fixed region references (us-central1 → europe-west2)"
+echo "  - Fixed region references (standardized to europe-west2)"
 echo "  - Updated GCP project placeholders"  
 echo "  - Standardized bucket naming"
 echo "  - Removed redundant configurations"

@@ -8,18 +8,18 @@
 
 # PostgreSQL instance for multiple microservices
 resource "google_sql_database_instance" "postgresql_primary" {
-  name             = "${var.project_name}-postgresql-primary"
-  database_version = "POSTGRES_15"
-  region          = var.region
-  deletion_protection = false  # Set to true in production
+  name                = "${var.project_name}-postgresql-primary"
+  database_version    = "POSTGRES_15"
+  region              = var.region
+  deletion_protection = false # Set to true in production
 
   settings {
-    tier = "db-g1-small"  # Start small, can scale up
-    
+    tier = "db-g1-small" # Start small, can scale up
+
     backup_configuration {
       enabled                        = true
-      start_time                    = "03:00"
-      location                      = var.region
+      start_time                     = "03:00"
+      location                       = var.region
       point_in_time_recovery_enabled = true
       backup_retention_settings {
         retained_backups = 7
@@ -27,12 +27,9 @@ resource "google_sql_database_instance" "postgresql_primary" {
     }
 
     ip_configuration {
-      ipv4_enabled    = true
+      ipv4_enabled    = false  # Private access only - no public IP
       private_network = data.google_compute_network.existing_vpc.id
-      authorized_networks {
-        name  = "${var.project_name}-vm"
-        value = "${var.user_ip}/32"
-      }
+      # No authorized_networks needed - internal GCP access only
     }
 
     database_flags {
@@ -44,18 +41,18 @@ resource "google_sql_database_instance" "postgresql_primary" {
 
 # MySQL instance for WordPress and BookStack
 resource "google_sql_database_instance" "mysql_primary" {
-  name             = "${var.project_name}-mysql-primary"
-  database_version = "MYSQL_8_0"
-  region          = var.region
-  deletion_protection = false  # Set to true in production
+  name                = "${var.project_name}-mysql-primary"
+  database_version    = "MYSQL_8_0"
+  region              = var.region
+  deletion_protection = false # Set to true in production
 
   settings {
     tier = "db-g1-small"
-    
+
     backup_configuration {
       enabled                        = true
-      start_time                    = "04:00"
-      location                      = var.region
+      start_time                     = "04:00"
+      location                       = var.region
       point_in_time_recovery_enabled = true
       backup_retention_settings {
         retained_backups = 7
@@ -63,30 +60,27 @@ resource "google_sql_database_instance" "mysql_primary" {
     }
 
     ip_configuration {
-      ipv4_enabled    = true
+      ipv4_enabled    = false  # Private access only - no public IP
       private_network = data.google_compute_network.existing_vpc.id
-      authorized_networks {
-        name  = "${var.project_name}-vm"
-        value = "${var.user_ip}/32"
-      }
+      # No authorized_networks needed - internal GCP access only
     }
   }
 }
 
 # MariaDB instance for ERPNext
 resource "google_sql_database_instance" "mariadb_erp" {
-  name             = "${var.project_name}-mariadb-erp"
-  database_version = "MYSQL_8_0"  # Using MySQL 8.0 as MariaDB equivalent
-  region          = var.region
-  deletion_protection = false  # Set to true in production
+  name                = "${var.project_name}-mariadb-erp"
+  database_version    = "MYSQL_8_0" # Using MySQL 8.0 as MariaDB equivalent
+  region              = var.region
+  deletion_protection = false # Set to true in production
 
   settings {
     tier = "db-g1-small"
-    
+
     backup_configuration {
       enabled                        = true
-      start_time                    = "05:00"
-      location                      = var.region
+      start_time                     = "05:00"
+      location                       = var.region
       point_in_time_recovery_enabled = true
       backup_retention_settings {
         retained_backups = 7
@@ -94,12 +88,9 @@ resource "google_sql_database_instance" "mariadb_erp" {
     }
 
     ip_configuration {
-      ipv4_enabled    = true
+      ipv4_enabled    = false  # Private access only - no public IP
       private_network = data.google_compute_network.existing_vpc.id
-      authorized_networks {
-        name  = "${var.project_name}-vm"
-        value = "${var.user_ip}/32"
-      }
+      # No authorized_networks needed - internal GCP access only
     }
   }
 }
@@ -112,7 +103,7 @@ resource "google_sql_database_instance" "mariadb_erp" {
 resource "google_sql_database" "postgresql_databases" {
   for_each = toset([
     "mattermost",
-    "windmill", 
+    "windmill",
     "metabase",
     "grafana",
     "openbao",
@@ -148,7 +139,7 @@ resource "google_sql_database" "erpnext_database" {
 resource "google_sql_user" "postgresql_users" {
   for_each = toset([
     "mattermost",
-    "windmill", 
+    "windmill",
     "metabase",
     "grafana",
     "openbao",

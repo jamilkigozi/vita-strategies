@@ -28,7 +28,7 @@ provider "google" {
 }
 
 provider "cloudflare" {
-  email   = var.cloudflare_email
+  email     = var.cloudflare_email
   api_token = var.cloudflare_api_token
 }
 
@@ -54,12 +54,12 @@ resource "google_project_service" "apis" {
     "monitoring.googleapis.com",
     "logging.googleapis.com"
   ])
-  
+
   project = var.project_id
   service = each.value
-  
+
   disable_dependent_services = false
-  disable_on_destroy = false
+  disable_on_destroy         = false
 }
 
 # ============================================================================
@@ -77,7 +77,7 @@ resource "google_compute_subnetwork" "main" {
   ip_cidr_range = var.subnet_cidr
   region        = var.region
   network       = data.google_compute_network.existing_vpc.id
-  
+
   # Enable private Google access
   private_ip_google_access = true
 }
@@ -142,11 +142,11 @@ locals {
     managed_by  = "terraform"
     created_at  = formatdate("YYYY-MM-DD", timestamp())
   }
-  
+
   # Service ports mapping
   service_ports = {
     ssh        = "22"
-    http       = "80" 
+    http       = "80"
     https      = "443"
     metabase   = "3000"
     grafana    = "3001"

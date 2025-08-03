@@ -140,7 +140,7 @@ resource "google_compute_instance" "main" {
 
   # Service account for GCS access
   service_account {
-    email  = google_service_account.vm_service_account.email
+    email = google_service_account.vm_service_account.email
     scopes = [
       "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/storage-rw"

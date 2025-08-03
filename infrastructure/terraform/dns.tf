@@ -21,18 +21,18 @@ resource "cloudflare_record" "main" {
   name    = var.domain_name
   value   = google_compute_address.main.address
   type    = "A"
-  proxied = true  # Enable Cloudflare proxy for SSL and performance
+  proxied = true # Enable Cloudflare proxy for SSL and performance
 }
 
 # Subdomain A records for microservices
 resource "cloudflare_record" "subdomains" {
   for_each = var.subdomain_services
-  
+
   zone_id = data.cloudflare_zone.main.id
   name    = "${each.value}.${var.domain_name}"
   value   = google_compute_address.main.address
   type    = "A"
-  proxied = true  # Enable Cloudflare proxy
+  proxied = true # Enable Cloudflare proxy
 }
 
 # ============================================================================
@@ -42,12 +42,12 @@ resource "cloudflare_record" "subdomains" {
 # Configure SSL settings for the domain
 resource "cloudflare_zone_settings_override" "ssl_settings" {
   zone_id = data.cloudflare_zone.main.id
-  
+
   settings {
-    ssl = "full"  # Full SSL encryption
-    always_use_https = "on"
+    ssl                      = "full" # Full SSL encryption
+    always_use_https         = "on"
     automatic_https_rewrites = "on"
-    universal_ssl = "on"
+    universal_ssl            = "on"
   }
 }
 

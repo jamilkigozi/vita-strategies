@@ -42,12 +42,12 @@ resource "google_project_iam_member" "vm_monitoring" {
 resource "google_storage_bucket_iam_member" "vm_bucket_access" {
   for_each = toset([
     "vita-strategies-erpnext-production",
-    "vita-strategies-analytics-production", 
+    "vita-strategies-analytics-production",
     "vita-strategies-team-files-production",
     "vita-strategies-assets-production",
     "vita-strategies-data-backup-production"
   ])
-  
+
   bucket = each.value
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.vm_service_account.email}"
@@ -56,7 +56,7 @@ resource "google_storage_bucket_iam_member" "vm_bucket_access" {
 # Grant access to all microservices buckets
 resource "google_storage_bucket_iam_member" "vm_microservices_bucket_access" {
   for_each = google_storage_bucket.microservices_buckets
-  
+
   bucket = each.value.name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.vm_service_account.email}"

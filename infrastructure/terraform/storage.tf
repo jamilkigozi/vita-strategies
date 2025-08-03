@@ -10,12 +10,12 @@
 data "google_storage_bucket" "existing_buckets" {
   for_each = toset([
     "vita-strategies-erpnext-production",
-    "vita-strategies-analytics-production", 
+    "vita-strategies-analytics-production",
     "vita-strategies-team-files-production",
     "vita-strategies-assets-production",
     "vita-strategies-data-backup-production"
   ])
-  
+
   name = each.value
 }
 
