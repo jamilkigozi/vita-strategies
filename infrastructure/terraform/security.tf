@@ -5,17 +5,60 @@
 # ============================================================================
 # SERVICE ACCOUNTS
 # ============================================================================
-# TODO: Create VM service account with minimal permissions
-# TODO: Create backup service account for storage access
-# TODO: Create monitoring service account
+
+# Service account for VM with minimal required permissions
+resource "google_service_account" "vm_service_account" {
+  account_id   = "${var.project_name}-vm-sa"
+  display_name = "Vita Strategies VM Service Account"
+  description  = "Service account for main application VM"
+}
+
+# IAM binding for storage access
+resource "google_project_iam_member" "vm_storage_access" {
+  project = var.project_id
+  role    = "roles/storage.objectAdmin"
+  member  = "serviceAccount:${google_service_account.vm_service_account.email}"
+}
+
+# IAM binding for logging (optional but recommended)
+resource "google_project_iam_member" "vm_logging" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.vm_service_account.email}"
+}
+
+# IAM binding for monitoring (optional but recommended)
+resource "google_project_iam_member" "vm_monitoring" {
+  project = var.project_id
+  role    = "roles/monitoring.metricWriter"
+  member  = "serviceAccount:${google_service_account.vm_service_account.email}"
+}
 
 # ============================================================================
 # IAM ROLES & POLICIES
 # ============================================================================
-# TODO: Define custom roles for specific services
-# TODO: Grant minimal required permissions
-# TODO: Set up bucket access policies
-# TODO: Configure compute instance permissions
+
+# Grant bucket access to VM service account for each bucket
+resource "google_storage_bucket_iam_member" "vm_bucket_access" {
+  for_each = toset([
+    "vita-strategies-erpnext-production",
+    "vita-strategies-analytics-production", 
+    "vita-strategies-team-files-production",
+    "vita-strategies-assets-production",
+    "vita-strategies-data-backup-production"
+  ])
+  
+  bucket = each.value
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.vm_service_account.email}"
+}
+
+# Grant access to new WordPress bucket
+resource "google_storage_bucket_iam_member" "vm_wordpress_bucket_access" {
+  bucket = google_storage_bucket.wordpress.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.vm_service_account.email}"
+}
 
 # ============================================================================
 # FIREWALL RULES

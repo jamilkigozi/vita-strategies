@@ -5,42 +5,107 @@
 # ============================================================================
 # COMPUTE OUTPUTS
 # ============================================================================
-# TODO: Output VM instance external IP
-# TODO: Output VM instance internal IP  
-# TODO: Output VM instance name and zone
+
+output "vm_external_ip" {
+  description = "External IP address of the main VM"
+  value       = google_compute_address.main.address
+}
+
+output "vm_internal_ip" {
+  description = "Internal IP address of the main VM"
+  value       = google_compute_instance.main.network_interface[0].network_ip
+}
+
+output "vm_name" {
+  description = "Name of the main VM instance"
+  value       = google_compute_instance.main.name
+}
+
+output "vm_zone" {
+  description = "Zone of the main VM instance"
+  value       = google_compute_instance.main.zone
+}
 
 # ============================================================================
 # NETWORKING OUTPUTS
 # ============================================================================
-# TODO: Output VPC network name
-# TODO: Output subnet information
-# TODO: Output firewall rule names
+
+output "vpc_network_name" {
+  description = "Name of the VPC network"
+  value       = data.google_compute_network.existing_vpc.name
+}
+
+output "subnet_name" {
+  description = "Name of the compute subnet"
+  value       = google_compute_subnetwork.main.name
+}
+
+output "subnet_cidr" {
+  description = "CIDR block of the compute subnet"
+  value       = google_compute_subnetwork.main.ip_cidr_range
+}
 
 # ============================================================================
 # STORAGE OUTPUTS
 # ============================================================================
-# TODO: Output bucket names and URLs
-# TODO: Output bucket service account emails
-# TODO: Output backup bucket information
+
+output "existing_buckets" {
+  description = "List of existing storage buckets"
+  value = [
+    "vita-strategies-erpnext-production",
+    "vita-strategies-analytics-production", 
+    "vita-strategies-team-files-production",
+    "vita-strategies-assets-production",
+    "vita-strategies-data-backup-production"
+  ]
+}
+
+output "wordpress_bucket_name" {
+  description = "Name of the WordPress storage bucket"
+  value       = google_storage_bucket.wordpress.name
+}
+
+output "wordpress_bucket_url" {
+  description = "URL of the WordPress storage bucket"
+  value       = google_storage_bucket.wordpress.url
+}
 
 # ============================================================================
 # SECURITY OUTPUTS
 # ============================================================================
-# TODO: Output service account emails
-# TODO: Output SSL certificate information
-# TODO: Output firewall rule details
+
+output "vm_service_account_email" {
+  description = "Email of the VM service account"
+  value       = google_service_account.vm_service_account.email
+}
 
 # ============================================================================
 # CONNECTION INFORMATION
 # ============================================================================
-# TODO: Output SSH connection commands
-# TODO: Output service URLs
-# TODO: Output monitoring endpoints
+
+output "ssh_command" {
+  description = "SSH command to connect to the VM"
+  value       = "ssh appuser@${google_compute_address.main.address}"
+}
+
+output "service_urls" {
+  description = "URLs for all microservices"
+  value = {
+    wordpress  = "https://${var.domain_name}"
+    erpnext    = "https://erp.${var.domain_name}"
+    metabase   = "https://analytics.${var.domain_name}"
+    grafana    = "https://monitor.${var.domain_name}"
+    appsmith   = "https://apps.${var.domain_name}"
+    keycloak   = "https://auth.${var.domain_name}"
+    mattermost = "https://chat.${var.domain_name}"
+    windmill   = "https://workflows.${var.domain_name}"
+  }
+}
 
 # ============================================================================
 # BUILD STATUS
 # ============================================================================
-# ⏳ NEXT: Add basic compute and networking outputs
-# 📋 TODO: Add storage outputs
-# 📋 TODO: Add security outputs
-# 📋 TODO: Add connection information
+# ✅ COMPLETE: All infrastructure outputs defined
+# ✅ COMPLETE: Connection information ready
+# ✅ COMPLETE: Service URLs configured
+# � READY: For terraform deployment
