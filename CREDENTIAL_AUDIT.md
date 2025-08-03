@@ -310,7 +310,7 @@ WORDPRESS_FROM_ADDRESS=content@vitastrategies.com
 # Google Cloud Platform
 GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
 GCP_PROJECT_ID=vita-strategies
-GCP_REGION=us-central1
+GCP_REGION=europe-west2
 
 # AWS S3 (for backups)
 AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY}

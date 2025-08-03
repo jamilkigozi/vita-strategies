@@ -1,7 +1,11 @@
 # OpenBao Production Container
 # Multi-stage build for secure secrets management platform
 
-# Stage 1: Base OpenBao with production optimizations
+# Stage 1: Base O    GCP_KMS_PROJECT="" \
+    GCP_KMS_REGION="europe-west2" \
+    GCP_KMS_KEY_RING="openbao-unseal" \
+    GCP_KMS_CRYPTO_KEY="openbao-key" \
+    GOOGLE_APPLICATION_CREDENTIALS="/opt/openbao/config/gcp-kms-key.json" \o with production optimizations
 FROM openbao/openbao:latest AS base
 
 # Set environment variables for production
@@ -107,7 +111,7 @@ ENV OPENBAO_CONFIG_PATH="/opt/openbao/config/openbao.hcl" \
     OPENBAO_AUDIT_FILE="/opt/openbao/audit/audit.log" \
     POSTGRES_URL="" \
     GCP_KMS_PROJECT="" \
-    GCP_KMS_REGION="us-central1" \
+    GCP_KMS_REGION="europe-west2" \
     GCP_KMS_KEY_RING="openbao-keyring" \
     GCP_KMS_CRYPTO_KEY="openbao-key" \
     GOOGLE_APPLICATION_CREDENTIALS="/opt/openbao/config/gcp-kms-key.json" \

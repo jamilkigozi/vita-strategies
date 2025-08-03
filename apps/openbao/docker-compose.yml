@@ -50,7 +50,7 @@ services:
       
       # GCP KMS configuration
       GCP_KMS_PROJECT: "${GCP_PROJECT_ID}"
-      GCP_KMS_REGION: "us-central1"
+      GCP_KMS_REGION: "europe-west2"
       GCP_KMS_KEY_RING: "openbao-keyring"
       GCP_KMS_CRYPTO_KEY: "openbao-key"
       GOOGLE_APPLICATION_CREDENTIALS: "/opt/openbao/config/gcp-kms-key.json"

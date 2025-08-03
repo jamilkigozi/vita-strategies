@@ -1,6 +1,10 @@
 # Terraform Variables
 # Purpose: Define all configurable parameters for infrastructure
-# Usage: Set values in terraform.tfvars or via command line
+# Usage: Set values invariable "admin_ip" {
+  description = "Admin IP address for SSH access (CIDR format)"
+  type        = string
+  default     = "0.0.0.0/0"  # Replace with your IP in CIDR format
+}aform.tfvars or via command line
 
 # ============================================================================
 # PROJECT CONFIGURATION
@@ -108,9 +112,9 @@ variable "retention_days" {
 # ============================================================================
 
 variable "admin_ip" {
-  description = "Admin IP address for SSH access"
+  description = "Admin IP address for SSH access (CIDR format)"
   type        = string
-  default     = "109.152.108.104/32"
+  default     = "0.0.0.0/0"  # Replace with your IP in CIDR format
 }
 
 variable "ssh_public_key" {
@@ -158,7 +162,7 @@ variable "subdomain_services" {
 variable "user_ip" {
   description = "User's public IP address for database access"
   type        = string
-  default     = "109.152.108.104"
+  default     = "0.0.0.0"  # Replace with your public IP address
 }
 
 variable "database_passwords" {

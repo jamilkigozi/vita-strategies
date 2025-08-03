@@ -44,8 +44,8 @@ storage "raft" {
 
 # Auto-unseal with Google Cloud KMS
 seal "gcpckms" {
-  project     = "GCP_PROJECT_PLACEHOLDER"
-  region      = "us-central1"
+  project     = "${GCP_PROJECT_ID}"
+  region      = "europe-west2"
   key_ring    = "openbao-keyring"
   crypto_key  = "openbao-key"
   

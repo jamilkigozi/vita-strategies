@@ -30,7 +30,7 @@ resource "google_sql_database_instance" "postgresql_primary" {
       ipv4_enabled    = true
       private_network = data.google_compute_network.existing_vpc.id
       authorized_networks {
-        name  = "vita-strategies-vm"
+        name  = "${var.project_name}-vm"
         value = "${var.user_ip}/32"
       }
     }
@@ -66,7 +66,7 @@ resource "google_sql_database_instance" "mysql_primary" {
       ipv4_enabled    = true
       private_network = data.google_compute_network.existing_vpc.id
       authorized_networks {
-        name  = "vita-strategies-vm"
+        name  = "${var.project_name}-vm"
         value = "${var.user_ip}/32"
       }
     }
@@ -97,7 +97,7 @@ resource "google_sql_database_instance" "mariadb_erp" {
       ipv4_enabled    = true
       private_network = data.google_compute_network.existing_vpc.id
       authorized_networks {
-        name  = "vita-strategies-vm"
+        name  = "${var.project_name}-vm"
         value = "${var.user_ip}/32"
       }
     }
