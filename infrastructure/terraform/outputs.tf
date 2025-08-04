@@ -62,12 +62,12 @@ output "existing_buckets" {
 
 output "wordpress_bucket_name" {
   description = "Name of the WordPress storage bucket"
-  value       = google_storage_bucket.wordpress.name
+  value       = google_storage_bucket.microservices_buckets["vita-strategies-wordpress-production"].name
 }
 
 output "wordpress_bucket_url" {
   description = "URL of the WordPress storage bucket"
-  value       = google_storage_bucket.wordpress.url
+  value       = google_storage_bucket.microservices_buckets["vita-strategies-wordpress-production"].url
 }
 
 # ============================================================================

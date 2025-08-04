@@ -1,0 +1,196 @@
+version: '3.8'
+
+networks:
+  vita-network:
+    driver: bridge
+
+services:
+  # Traefik - Reverse Proxy with SSL
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: unless-stopped
+    networks:
+      - vita-network
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik:/etc/traefik
+      - ./letsencrypt:/letsencrypt
+    command:
+      - --api.dashboard=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.email=admin@vitastrategies.com
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.vitastrategies.com`)"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+
+  # WordPress - Main website
+  wordpress:
+    image: wordpress:6.4-apache
+    container_name: wordpress
+    restart: unless-stopped
+    networks:
+      - vita-network
+    volumes:
+      - /mnt/buckets/wordpress:/var/www/html/wp-content
+      - /mnt/buckets/assets:/var/www/html/wp-content/uploads
+    environment:
+      WORDPRESS_DB_HOST: 172.23.0.6
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_DEBUG', false);
+        define('WP_DEBUG_LOG', false);
+        define('FORCE_SSL_ADMIN', true);
+        define('WP_MEMORY_LIMIT', '512M');
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wordpress.rule=Host(`vitastrategies.com`) || Host(`www.vitastrategies.com`)"
+      - "traefik.http.routers.wordpress.tls.certresolver=letsencrypt"
+      - "traefik.http.services.wordpress.loadbalancer.server.port=80"
+
+  # ERPNext - Business management
+  erpnext:
+    image: frappe/erpnext:v15
+    container_name: erpnext
+    restart: unless-stopped
+    networks:
+      - vita-network
+    volumes:
+      - /mnt/buckets/erpnext:/home/frappe/frappe-bench/sites
+    environment:
+      MARIADB_HOST: 172.23.0.7
+      MARIADB_ROOT_PASSWORD: ${ERPNEXT_DB_PASSWORD}
+      MARIADB_DATABASE: erpnext
+      MARIADB_USER: erpnext
+      MARIADB_PASSWORD: ${ERPNEXT_DB_PASSWORD}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.erpnext.rule=Host(`erp.vitastrategies.com`)"
+      - "traefik.http.routers.erpnext.tls.certresolver=letsencrypt"
+      - "traefik.http.services.erpnext.loadbalancer.server.port=8000"
+
+  # Mattermost - Team communication
+  mattermost:
+    image: mattermost/mattermost-team-edition:8.1
+    container_name: mattermost
+    restart: unless-stopped
+    networks:
+      - vita-network
+    volumes:
+      - /mnt/buckets/mattermost:/mattermost/data
+      - /mnt/buckets/mattermost/config:/mattermost/config
+      - /mnt/buckets/mattermost/logs:/mattermost/logs
+    environment:
+      MM_SQLSETTINGS_DRIVERNAME: postgres
+      MM_SQLSETTINGS_DATASOURCE: postgres://mattermost:${MATTERMOST_DB_PASSWORD}@172.23.0.5:5432/mattermost?sslmode=disable&connect_timeout=10
+      MM_SERVICESETTINGS_SITEURL: https://chat.vitastrategies.com
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mattermost.rule=Host(`chat.vitastrategies.com`)"
+      - "traefik.http.routers.mattermost.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mattermost.loadbalancer.server.port=8065"
+
+  # BookStack - Documentation
+  bookstack:
+    image: linuxserver/bookstack:latest
+    container_name: bookstack
+    restart: unless-stopped
+    networks:
+      - vita-network
+    volumes:
+      - /mnt/buckets/docs:/config
+    environment:
+      PUID: 1000
+      PGID: 1000
+      DB_HOST: 172.23.0.6
+      DB_USER: bookstack
+      DB_PASS: ${BOOKSTACK_DB_PASSWORD}
+      DB_DATABASE: bookstack
+      APP_URL: https://docs.vitastrategies.com
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bookstack.rule=Host(`docs.vitastrategies.com`)"
+      - "traefik.http.routers.bookstack.tls.certresolver=letsencrypt"
+      - "traefik.http.services.bookstack.loadbalancer.server.port=80"
+
+  # Grafana - Monitoring dashboard
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: grafana
+    restart: unless-stopped
+    networks:
+      - vita-network
+    volumes:
+      - /mnt/buckets/monitoring:/var/lib/grafana
+    environment:
+      GF_DATABASE_TYPE: postgres
+      GF_DATABASE_HOST: 172.23.0.5:5432
+      GF_DATABASE_NAME: grafana
+      GF_DATABASE_USER: grafana
+      GF_DATABASE_PASSWORD: ${GRAFANA_DB_PASSWORD}
+      GF_SERVER_ROOT_URL: https://monitoring.vitastrategies.com
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`monitoring.vitastrategies.com`)"
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+
+  # Metabase - Analytics
+  metabase:
+    image: metabase/metabase:v0.47.0
+    container_name: metabase
+    restart: unless-stopped
+    networks:
+      - vita-network
+    volumes:
+      - /mnt/buckets/analytics:/metabase-data
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: metabase
+      MB_DB_PASS: ${METABASE_DB_PASSWORD}
+      MB_DB_HOST: 172.23.0.5
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.metabase.rule=Host(`analytics.vitastrategies.com`)"
+      - "traefik.http.routers.metabase.tls.certresolver=letsencrypt"
+      - "traefik.http.services.metabase.loadbalancer.server.port=3000"
+
+  # Keycloak - Authentication
+  keycloak:
+    image: quay.io/keycloak/keycloak:22.0
+    container_name: keycloak
+    restart: unless-stopped
+    networks:
+      - vita-network
+    volumes:
+      - /mnt/buckets/auth:/opt/keycloak/data
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://172.23.0.5:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KC_HOSTNAME: auth.vitastrategies.com
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+    command: start --optimized
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`auth.vitastrategies.com`)"
+      - "traefik.http.routers.keycloak.tls.certresolver=letsencrypt"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"

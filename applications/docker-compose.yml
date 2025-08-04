@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # Database for ERPNext
+  erpnext-db:
+    image: mariadb:10.6
+    environment:
+      MYSQL_ROOT_PASSWORD: vita_secure_2024
+      MYSQL_DATABASE: erpnext
+      MYSQL_USER: erpnext
+      MYSQL_PASSWORD: vita_secure_2024
+    volumes:
+      - erpnext_db_data:/var/lib/mysql
+    restart: unless-stopped
+
+  # Redis for ERPNext queues
+  erpnext-redis-queue:
+    image: redis:6-alpine
+    ports:
+      - "11311:6379"
+    restart: unless-stopped
+
+  # Redis for ERPNext cache
+  erpnext-redis-cache:
+    image: redis:6-alpine
+    ports:
+      - "13311:6379"
+    restart: unless-stopped
+
+  erpnext:
+    image: frappe/erpnext:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=erpnext-db
+      - DB_ROOT_PASSWORD=vita_secure_2024
+      - REDIS_QUEUE=redis://erpnext-redis-queue:6379
+      - REDIS_CACHE=redis://erpnext-redis-cache:6379
+    volumes:
+      - erpnext_sites:/home/frappe/frappe-bench/sites
+    depends_on:
+      - erpnext-db
+      - erpnext-redis-queue
+      - erpnext-redis-cache
+    restart: unless-stopped
+
+  windmill:
+    image: ghcr.io/windmill-labs/windmill:main
+    ports:
+      - "8080:8000"
+    restart: unless-stopped
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: vita_secure_2024
+    command: start-dev
+    ports:
+      - "8180:8080"
+    restart: unless-stopped
+
+  metabase:
+    image: metabase/metabase:latest
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  appsmith:
+    image: appsmith/appsmith-ee:latest
+    ports:
+      - "8081:80"
+    restart: unless-stopped
+
+  mattermost:
+    image: mattermost/mattermost-enterprise-edition:latest
+    ports:
+      - "8065:8065"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: vita_secure_2024
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
+
+volumes:
+  erpnext_db_data:
+  erpnext_sites:

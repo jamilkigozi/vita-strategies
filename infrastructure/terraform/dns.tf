@@ -3,9 +3,10 @@
 # Dependencies: main.tf (external IP), variables.tf (domain config)
 
 # ============================================================================
-# CLOUDFLARE ZONE DATA
+# CLOUDFLARE ZONE DATA - COMMENTED OUT DUE TO LOCATION RESTRICTIONS
 # ============================================================================
 
+/*
 # Get the Cloudflare zone for vitastrategies.com
 data "cloudflare_zone" "main" {
   name = var.domain_name
@@ -50,10 +51,11 @@ resource "cloudflare_zone_settings_override" "ssl_settings" {
     universal_ssl            = "on"
   }
 }
+*/
 
 # ============================================================================
 # BUILD STATUS
 # ============================================================================
-# ✅ COMPLETE: DNS records for main domain and all subdomains
-# ✅ COMPLETE: SSL settings configured
-# 🚀 READY: DNS will point to compute instance external IP
+# 🚧 DISABLED: DNS configuration disabled due to Cloudflare location restrictions
+# 📝 TODO: Configure DNS manually after infrastructure deployment
+# 🚀 READY: Infrastructure can be deployed without DNS

@@ -37,6 +37,10 @@ resource "google_sql_database_instance" "postgresql_primary" {
       value = "200"
     }
   }
+
+  depends_on = [
+    google_service_networking_connection.private_vpc_connection
+  ]
 }
 
 # MySQL instance for WordPress and BookStack
@@ -53,7 +57,7 @@ resource "google_sql_database_instance" "mysql_primary" {
       enabled                        = true
       start_time                     = "04:00"
       location                       = var.region
-      point_in_time_recovery_enabled = true
+      binary_log_enabled            = true
       backup_retention_settings {
         retained_backups = 7
       }
@@ -65,6 +69,10 @@ resource "google_sql_database_instance" "mysql_primary" {
       # No authorized_networks needed - internal GCP access only
     }
   }
+
+  depends_on = [
+    google_service_networking_connection.private_vpc_connection
+  ]
 }
 
 # MariaDB instance for ERPNext
@@ -81,7 +89,7 @@ resource "google_sql_database_instance" "mariadb_erp" {
       enabled                        = true
       start_time                     = "05:00"
       location                       = var.region
-      point_in_time_recovery_enabled = true
+      binary_log_enabled            = true
       backup_retention_settings {
         retained_backups = 7
       }
@@ -93,6 +101,10 @@ resource "google_sql_database_instance" "mariadb_erp" {
       # No authorized_networks needed - internal GCP access only
     }
   }
+
+  depends_on = [
+    google_service_networking_connection.private_vpc_connection
+  ]
 }
 
 # ============================================================================

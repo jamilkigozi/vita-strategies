@@ -28,7 +28,6 @@ provider "google" {
 }
 
 provider "cloudflare" {
-  email     = var.cloudflare_email
   api_token = var.cloudflare_api_token
 }
 
@@ -52,7 +51,9 @@ resource "google_project_service" "apis" {
     "iam.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "monitoring.googleapis.com",
-    "logging.googleapis.com"
+    "logging.googleapis.com",
+    "servicenetworking.googleapis.com",
+    "sqladmin.googleapis.com"
   ])
 
   project = var.project_id
@@ -74,7 +75,7 @@ data "google_compute_network" "existing_vpc" {
 # Create subnet for compute instances in existing VPC
 resource "google_compute_subnetwork" "main" {
   name          = "${var.project_name}-compute-subnet"
-  ip_cidr_range = var.subnet_cidr
+  ip_cidr_range = "10.0.1.0/24"
   region        = var.region
   network       = data.google_compute_network.existing_vpc.id
 
@@ -128,6 +129,30 @@ resource "google_compute_firewall" "ssh" {
 
   source_ranges = [var.admin_ip]
   target_tags   = ["ssh-access"]
+}
+
+# ============================================================================
+# PRIVATE SERVICE NETWORKING FOR CLOUD SQL
+# ============================================================================
+
+# Allocate IP range for private services
+resource "google_compute_global_address" "private_ip_address" {
+  name          = "${var.project_name}-private-ip-address"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 16
+  network       = data.google_compute_network.existing_vpc.id
+}
+
+# Create private connection for Cloud SQL
+resource "google_service_networking_connection" "private_vpc_connection" {
+  network                 = data.google_compute_network.existing_vpc.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
+
+  depends_on = [
+    google_project_service.apis
+  ]
 }
 
 # ============================================================================
