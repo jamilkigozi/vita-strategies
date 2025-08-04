@@ -26,7 +26,7 @@ services:
       
       # Admin User (optional - for initial setup)
       MM_ADMIN_USERNAME: ${MATTERMOST_ADMIN_USERNAME:-admin}
-      MM_ADMIN_PASSWORD: ${MATTERMOST_ADMIN_PASSWORD:-admin123}
+      MM_ADMIN_PASSWORD: ${MATTERMOST_ADMIN_PASSWORD}
       MM_ADMIN_EMAIL: ${MATTERMOST_ADMIN_EMAIL:-admin@vitastrategies.com}
       
       # Plugin Configuration

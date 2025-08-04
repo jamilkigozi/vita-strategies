@@ -33,9 +33,9 @@ python-magic==0.4.27
 PyPDF2==3.0.1
 
 # API enhancements
-requests==2.31.0
+requests>=2.32.4
 httpx==0.24.1
-aiohttp==3.8.5
+aiohttp>=3.9.0
 
 # Data processing
 pandas==2.0.3

@@ -72,7 +72,7 @@ steps:
     args: [
       'run', 'deploy', 'vita-strategies-wordpress',
       '--image', 'gcr.io/$PROJECT_ID/wordpress:latest',
-      '--region', 'us-central1',
+      '--region', 'europe-west2',
       '--platform', 'managed',
       '--allow-unauthenticated'
     ]
@@ -81,7 +81,7 @@ steps:
     args: [
       'run', 'deploy', 'vita-strategies-erpnext',
       '--image', 'gcr.io/$PROJECT_ID/erpnext:latest',
-      '--region', 'us-central1',
+      '--region', 'europe-west2',
       '--platform', 'managed',
       '--allow-unauthenticated'
     ]
@@ -90,7 +90,7 @@ steps:
     args: [
       'run', 'deploy', 'vita-strategies-mattermost',
       '--image', 'gcr.io/$PROJECT_ID/mattermost:latest',
-      '--region', 'us-central1',
+      '--region', 'europe-west2',
       '--platform', 'managed',
       '--allow-unauthenticated'
     ]
@@ -99,7 +99,7 @@ steps:
     args: [
       'run', 'deploy', 'vita-strategies-windmill',
       '--image', 'gcr.io/$PROJECT_ID/windmill:latest',
-      '--region', 'us-central1',
+      '--region', 'europe-west2',
       '--platform', 'managed',
       '--allow-unauthenticated'
     ]
@@ -108,7 +108,7 @@ steps:
     args: [
       'run', 'deploy', 'vita-strategies-metabase',
       '--image', 'gcr.io/$PROJECT_ID/metabase:latest',
-      '--region', 'us-central1',
+      '--region', 'europe-west2',
       '--platform', 'managed',
       '--allow-unauthenticated'
     ]
@@ -117,7 +117,7 @@ steps:
     args: [
       'run', 'deploy', 'vita-strategies-grafana',
       '--image', 'gcr.io/$PROJECT_ID/grafana:latest',
-      '--region', 'us-central1',
+      '--region', 'europe-west2',
       '--platform', 'managed',
       '--allow-unauthenticated'
     ]
@@ -126,7 +126,7 @@ steps:
     args: [
       'run', 'deploy', 'vita-strategies-keycloak',
       '--image', 'gcr.io/$PROJECT_ID/keycloak:latest',
-      '--region', 'us-central1',
+      '--region', 'europe-west2',
       '--platform', 'managed',
       '--allow-unauthenticated'
     ]

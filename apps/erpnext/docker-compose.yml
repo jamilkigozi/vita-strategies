@@ -35,7 +35,7 @@ services:
       
       # ERPNext configuration
       SITE_NAME: ${SITE_NAME:-localhost}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       DEVELOPER_MODE: ${DEVELOPER_MODE:-0}
       AUTO_MIGRATE: ${AUTO_MIGRATE:-1}
       FORCE_HTTPS: 0
