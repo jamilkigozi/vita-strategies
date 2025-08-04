@@ -1,0 +1,125 @@
+version: '3.8'
+
+# Persistent volumes configuration for production deployment
+# This ensures data survives container restarts and updates
+
+networks:
+  vita-network:
+    driver: bridge
+
+volumes:
+  # ERPNext persistent storage
+  erpnext_db_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/docker/volumes/vita_erpnext_db
+  
+  erpnext_sites:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/docker/volumes/vita_erpnext_sites
+  
+  # Windmill persistent storage
+  windmill_db_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/docker/volumes/vita_windmill_db
+  
+  # Analytics persistent storage
+  metabase_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/docker/volumes/vita_metabase
+  
+  # Monitoring persistent storage
+  grafana_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/docker/volumes/vita_grafana
+  
+  # Communication persistent storage
+  mattermost_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/docker/volumes/vita_mattermost_data
+  
+  mattermost_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/docker/volumes/vita_mattermost_logs
+  
+  mattermost_config:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/docker/volumes/vita_mattermost_config
+  
+  mattermost_plugins:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/docker/volumes/vita_mattermost_plugins
+
+# Include all services from main docker-compose.yml
+# This extends the main compose file with persistent volume configuration
+services:
+  erpnext-db:
+    extends:
+      file: docker-compose.yml
+      service: erpnext-db
+    volumes:
+      - erpnext_db_data:/var/lib/mysql
+  
+  erpnext:
+    extends:
+      file: docker-compose.yml
+      service: erpnext
+    volumes:
+      - erpnext_sites:/home/frappe/frappe-bench/sites
+  
+  windmill-db:
+    extends:
+      file: docker-compose.yml
+      service: windmill-db
+    volumes:
+      - windmill_db_data:/var/lib/postgresql/data
+  
+  metabase:
+    extends:
+      file: docker-compose.yml
+      service: metabase
+    volumes:
+      - metabase_data:/metabase-data
+  
+  grafana:
+    extends:
+      file: docker-compose.yml
+      service: grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+  
+  mattermost:
+    extends:
+      file: docker-compose.yml
+      service: mattermost
+    volumes:
+      - mattermost_data:/mattermost/data
+      - mattermost_logs:/mattermost/logs
+      - mattermost_config:/mattermost/config
+      - mattermost_plugins:/mattermost/plugins
