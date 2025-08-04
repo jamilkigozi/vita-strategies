@@ -54,7 +54,7 @@ services:
       
       # Admin configuration
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@vitastrategies.com}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       
       # Integration URLs (optional)
       ERPNEXT_URL: ${ERPNEXT_URL:-}

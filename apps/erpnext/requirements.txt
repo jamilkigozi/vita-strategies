@@ -47,7 +47,7 @@ backup-utils==1.2.3
 tarfile-stream==0.1.2
 
 # Development and debugging (production-safe)
-sentry-sdk==1.29.2
+sentry-sdk>=2.8.0
 structlog==23.1.0
 
 # Caching and session management

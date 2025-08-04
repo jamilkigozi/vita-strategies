@@ -3,7 +3,7 @@
 
 # Storage backend - PostgreSQL for production persistence
 storage "postgresql" {
-  connection_url = "postgres://openbao_user:OPENBAO_DB_PASSWORD@postgres.c.vita-strategies.internal:5432/openbao?sslmode=require"
+  connection_url = "${OPENBAO_DATABASE_URL}"
   table         = "openbao_data"
   
   # Connection pool settings

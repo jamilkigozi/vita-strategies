@@ -1,73 +1,69 @@
-# Vita Strategies - Quick Start Guide
+# Quick Start Guide
 
 ## Prerequisites
-- Docker and Docker Compose installed
-- 8GB+ RAM available
-- 20GB+ disk space
+- Google Cloud Platform account with billing enabled
+- `gcloud` CLI installed and configured
+- Terraform installed
 
-## Quick Deployment
+## 1. Initial Setup
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/jamilkigozi/vita-strategies.git
-   cd vita-strategies
-   ```
+```bash
+# Clone repository
+git clone https://github.com/jamilkigozi/vita-strategies.git
+cd vita-strategies
 
-2. **Start all services:**
-   ```bash
-   docker-compose up -d
-   ```
+# Set your GCP project
+export PROJECT_ID="your-gcp-project-id"
+gcloud config set project $PROJECT_ID
+```
 
-3. **Check service status:**
-   ```bash
-   docker-compose ps
-   ```
+## 2. Deploy Infrastructure
 
-## Service Access
+```bash
+cd infrastructure/terraform
 
-Once running, access services at:
+# Initialize Terraform
+terraform init
 
-- **ERPNext**: http://localhost (or http://erp.vita-strategies.com)
-- **Windmill**: http://windmill.vita-strategies.com
-- **Metabase**: http://analytics.vita-strategies.com  
-- **Grafana**: http://monitoring.vita-strategies.com
-- **Mattermost**: http://chat.vita-strategies.com
+# Review and apply infrastructure
+terraform plan
+terraform apply
+```
 
-## Default Credentials
+## 3. Set Up CI/CD
 
-### ERPNext
-- Admin setup required on first access
+```bash
+# Create Cloud Build trigger
+gcloud builds triggers create github \
+  --repo-name=vita-strategies \
+  --repo-owner=jamilkigozi \
+  --branch-pattern=main \
+  --build-config=cloudbuild.yaml
+```
 
-### Grafana
-- Username: admin
-- Password: vita_admin_2024
+## 4. Deploy Services
 
-### Databases
-- Root password: vita_secure_2024
+```bash
+# Push to trigger deployment
+git push origin main
+```
+
+## 5. Access Services
+
+After deployment, services will be available at:
+- Main site: `https://vitastrategies.com`
+- ERP: `https://erp.vitastrategies.com`
+- Chat: `https://chat.vitastrategies.com`
 
 ## Troubleshooting
 
-**Services not starting?**
+Check Cloud Build logs:
 ```bash
-docker-compose logs [service-name]
+gcloud builds list --limit=5
+gcloud builds log BUILD_ID
 ```
 
-**Reset everything:**
+Check service status:
 ```bash
-docker-compose down -v
-docker-compose up -d
+gcloud run services list
 ```
-
-**Check network:**
-```bash
-docker network ls
-docker network inspect vita-strategies_vita-network
-```
-
-## Development
-
-For development work, see individual service READMEs in the `apps/` directory.
-
-## Support
-
-For issues or questions, check the main README.md or create an issue on GitHub.
