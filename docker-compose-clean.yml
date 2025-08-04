@@ -1,0 +1,109 @@
+version: '3.8'
+
+# Clean minimal deployment for testing and development
+# This compose file includes only essential services without persistent data
+
+networks:
+  vita-network:
+    driver: bridge
+
+services:
+  # ERPNext with in-memory database for testing
+  erpnext-test:
+    image: frappe/erpnext:v15
+    container_name: erpnext-test
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=test-db
+      - DB_ROOT_PASSWORD=test123
+      - REDIS_QUEUE=redis://test-redis:6379
+      - REDIS_CACHE=redis://test-redis:6379
+      - DEVELOPER_MODE=1
+    depends_on:
+      - test-db
+      - test-redis
+    networks:
+      - vita-network
+    restart: "no"
+
+  # Minimal MariaDB for testing
+  test-db:
+    image: mariadb:10.6
+    container_name: test-db
+    environment:
+      MYSQL_ROOT_PASSWORD: test123
+      MYSQL_DATABASE: erpnext
+      MYSQL_USER: erpnext
+      MYSQL_PASSWORD: test123
+    tmpfs:
+      - /var/lib/mysql
+    networks:
+      - vita-network
+    restart: "no"
+
+  # Redis for testing
+  test-redis:
+    image: redis:6-alpine
+    container_name: test-redis
+    networks:
+      - vita-network
+    restart: "no"
+
+  # Windmill for workflow testing
+  windmill-test:
+    image: ghcr.io/windmill-labs/windmill:main
+    container_name: windmill-test
+    ports:
+      - "8080:8000"
+    environment:
+      - DATABASE_URL=postgres://windmill:test123@windmill-test-db:5432/windmill
+      - RUST_LOG=info
+    depends_on:
+      - windmill-test-db
+    networks:
+      - vita-network
+    restart: "no"
+
+  # PostgreSQL for Windmill testing
+  windmill-test-db:
+    image: postgres:13
+    container_name: windmill-test-db
+    environment:
+      POSTGRES_DB: windmill
+      POSTGRES_USER: windmill
+      POSTGRES_PASSWORD: test123
+    tmpfs:
+      - /var/lib/postgresql/data
+    networks:
+      - vita-network
+    restart: "no"
+
+  # Lightweight monitoring
+  grafana-test:
+    image: grafana/grafana:latest
+    container_name: grafana-test
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=test123
+      - GF_INSTALL_PLUGINS=
+    networks:
+      - vita-network
+    restart: "no"
+
+  # Test nginx proxy
+  nginx-test:
+    image: nginx:alpine
+    container_name: nginx-test
+    ports:
+      - "80:80"
+    volumes:
+      - ./config/nginx-test.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - erpnext-test
+      - windmill-test
+      - grafana-test
+    networks:
+      - vita-network
+    restart: "no"
