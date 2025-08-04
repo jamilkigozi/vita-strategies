@@ -28,28 +28,24 @@ resource "google_cloud_run_service" "wordpress" {
           name  = "WORDPRESS_DB_USER"
           value = "wordpress"
         }
+
+        ports {
+          container_port = 80
+        }
         env {
           name = "WORDPRESS_DB_PASSWORD"
           value_from {
             secret_key_ref {
-              name = google_secret_manager_secret_version.db_passwords["wordpress"].secret
+              name = "wordpress-db-password"
               key  = "latest"
             }
           }
         }
 
-        volume_mounts {
-          name       = "wordpress-storage"
-          mount_path = "/var/www/html/wp-content"
-        }
+
       }
 
-      volumes {
-        name = "wordpress-storage"
-        gcs {
-          bucket = "vita-strategies-wordpress-production"
-        }
-      }
+
 
       service_account_name = google_service_account.cloud_run_sa.email
     }
@@ -94,24 +90,20 @@ resource "google_cloud_run_service" "erpnext" {
           name = "MARIADB_PASSWORD"
           value_from {
             secret_key_ref {
-              name = google_secret_manager_secret_version.db_passwords["erpnext"].secret
+              name = "erpnext-db-password"
               key  = "latest"
             }
           }
         }
 
-        volume_mounts {
-          name       = "erpnext-storage"
-          mount_path = "/home/frappe/frappe-bench/sites"
+        ports {
+          container_port = 8000
         }
+
+
       }
 
-      volumes {
-        name = "erpnext-storage"
-        gcs {
-          bucket = "vita-strategies-erpnext-production"
-        }
-      }
+
 
       service_account_name = google_service_account.cloud_run_sa.email
     }
@@ -152,19 +144,19 @@ resource "google_cloud_run_service" "mattermost" {
           name  = "MM_SERVICESETTINGS_SITEURL"
           value = "https://chat.vitastrategies.com"
         }
-
-        volume_mounts {
-          name       = "mattermost-storage"
-          mount_path = "/mattermost/data"
+        env {
+          name  = "MM_SERVICESETTINGS_LISTENADDRESS"
+          value = ":8065"
         }
+
+        ports {
+          container_port = 8065
+        }
+
+
       }
 
-      volumes {
-        name = "mattermost-storage"
-        gcs {
-          bucket = "vita-strategies-mattermost-production"
-        }
-      }
+
 
       service_account_name = google_service_account.cloud_run_sa.email
     }
@@ -198,18 +190,14 @@ resource "google_cloud_run_service" "windmill" {
           value = "postgresql://windmill:${var.database_passwords["windmill"]}@${google_sql_database_instance.postgresql_primary.private_ip_address}:5432/windmill"
         }
 
-        volume_mounts {
-          name       = "windmill-storage"
-          mount_path = "/tmp/windmill"
+        ports {
+          container_port = 8000
         }
+
+
       }
 
-      volumes {
-        name = "windmill-storage"
-        gcs {
-          bucket = "vita-strategies-workflows-production"
-        }
-      }
+
 
       service_account_name = google_service_account.cloud_run_sa.email
     }
@@ -254,28 +242,24 @@ resource "google_cloud_run_service" "metabase" {
           name  = "MB_DB_USER"
           value = "metabase"
         }
+
+        ports {
+          container_port = 3000
+        }
         env {
           name = "MB_DB_PASS"
           value_from {
             secret_key_ref {
-              name = google_secret_manager_secret_version.db_passwords["metabase"].secret
+              name = "metabase-db-password"
               key  = "latest"
             }
           }
         }
 
-        volume_mounts {
-          name       = "metabase-storage"
-          mount_path = "/metabase-data"
-        }
+
       }
 
-      volumes {
-        name = "metabase-storage"
-        gcs {
-          bucket = "vita-strategies-analytics-production"
-        }
-      }
+
 
       service_account_name = google_service_account.cloud_run_sa.email
     }
@@ -324,7 +308,7 @@ resource "google_cloud_run_service" "grafana" {
           name = "GF_DATABASE_PASSWORD"
           value_from {
             secret_key_ref {
-              name = google_secret_manager_secret_version.db_passwords["grafana"].secret
+              name = "grafana-db-password"
               key  = "latest"
             }
           }
@@ -333,19 +317,19 @@ resource "google_cloud_run_service" "grafana" {
           name  = "GF_SERVER_ROOT_URL"
           value = "https://monitoring.vitastrategies.com"
         }
-
-        volume_mounts {
-          name       = "grafana-storage"
-          mount_path = "/var/lib/grafana"
+        env {
+          name  = "GF_SERVER_HTTP_PORT"
+          value = "3000"
         }
+
+        ports {
+          container_port = 3000
+        }
+
+
       }
 
-      volumes {
-        name = "grafana-storage"
-        gcs {
-          bucket = "vita-strategies-monitoring-production"
-        }
-      }
+
 
       service_account_name = google_service_account.cloud_run_sa.email
     }
@@ -390,7 +374,7 @@ resource "google_cloud_run_service" "keycloak" {
           name = "KC_DB_PASSWORD"
           value_from {
             secret_key_ref {
-              name = google_secret_manager_secret_version.db_passwords["keycloak"].secret
+              name = "keycloak-db-password"
               key  = "latest"
             }
           }
@@ -403,7 +387,7 @@ resource "google_cloud_run_service" "keycloak" {
           name = "KEYCLOAK_ADMIN"
           value_from {
             secret_key_ref {
-              name = google_secret_manager_secret_version.keycloak_admin.secret
+              name = "keycloak-admin-user"
               key  = "latest"
             }
           }
@@ -412,24 +396,24 @@ resource "google_cloud_run_service" "keycloak" {
           name = "KEYCLOAK_ADMIN_PASSWORD"
           value_from {
             secret_key_ref {
-              name = google_secret_manager_secret_version.keycloak_admin_password.secret
+              name = "keycloak-admin-password"
               key  = "latest"
             }
           }
         }
-
-        volume_mounts {
-          name       = "keycloak-storage"
-          mount_path = "/opt/keycloak/data"
+        env {
+          name  = "KC_HTTP_PORT"
+          value = "8080"
         }
+
+        ports {
+          container_port = 8080
+        }
+
+
       }
 
-      volumes {
-        name = "keycloak-storage"
-        gcs {
-          bucket = "vita-strategies-auth-production"
-        }
-      }
+
 
       service_account_name = google_service_account.cloud_run_sa.email
     }

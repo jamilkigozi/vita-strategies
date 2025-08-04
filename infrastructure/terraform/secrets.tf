@@ -16,7 +16,7 @@ resource "google_secret_manager_secret" "db_passwords" {
   secret_id = "${each.value}-db-password"
   
   replication {
-    automatic = true
+    auto {}
   }
 }
 
@@ -32,7 +32,7 @@ resource "google_secret_manager_secret" "keycloak_admin" {
   secret_id = "keycloak-admin-user"
   
   replication {
-    automatic = true
+    auto {}
   }
 }
 
@@ -45,7 +45,7 @@ resource "google_secret_manager_secret" "keycloak_admin_password" {
   secret_id = "keycloak-admin-password"
   
   replication {
-    automatic = true
+    auto {}
   }
 }
 
