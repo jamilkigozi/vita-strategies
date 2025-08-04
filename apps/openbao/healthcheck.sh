@@ -182,8 +182,8 @@ check_database_connectivity() {
     fi
     
     # Extract connection details
-    local db_host=$(echo $POSTGRES_URL | sed -n 's/.*@\([^:]*\):.*/\1/p')
-    local db_port=$(echo $POSTGRES_URL | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
+    local db_host=$(echo "$POSTGRES_URL" | sed -n 's/.*@\([^:]*\):.*/\1/p')
+    local db_port=$(echo "$POSTGRES_URL" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
     
     if [ -z "$db_host" ] || [ -z "$db_port" ]; then
         log_warning "Cannot parse database connection details"
@@ -191,7 +191,7 @@ check_database_connectivity() {
         return $HEALTH_WARNING
     fi
     
-    if nc -z -w$TIMEOUT "$db_host" "$db_port" 2>/dev/null; then
+    if nc -z -w"$TIMEOUT" "$db_host" "$db_port" 2>/dev/null; then
         log_ok "Database connectivity successful"
         update_status $HEALTH_OK
         return $HEALTH_OK
@@ -335,7 +335,7 @@ check_certificates() {
         local cert_expiry=$(openssl x509 -in "$OPENBAO_TLS_CERT_FILE" -noout -enddate 2>/dev/null | cut -d= -f2)
         local expiry_timestamp=$(date -d "$cert_expiry" +%s 2>/dev/null)
         local current_timestamp=$(date +%s)
-        local days_until_expiry=$(( (expiry_timestamp - current_timestamp) / 86400 ))
+        local days_until_expiry=$(( ("$expiry_timestamp" - "$current_timestamp") / 86400 ))
         
         if [ $days_until_expiry -lt 0 ]; then
             log_critical "TLS certificate has expired"

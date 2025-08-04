@@ -81,10 +81,43 @@ resource "google_project_iam_member" "vm_cloudsql_instance_user" {
 }
 
 # ============================================================================
+# CLOUD RUN SERVICE ACCOUNT
+# ============================================================================
+
+# Service account for Cloud Run services
+resource "google_service_account" "cloud_run_sa" {
+  account_id   = "${var.project_name}-cloud-run-sa"
+  display_name = "Vita Strategies Cloud Run Service Account"
+  description  = "Service account for Cloud Run services"
+}
+
+# Cloud SQL access for Cloud Run
+resource "google_project_iam_member" "cloud_run_cloudsql" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
+}
+
+# Storage access for Cloud Run
+resource "google_project_iam_member" "cloud_run_storage" {
+  project = var.project_id
+  role    = "roles/storage.objectAdmin"
+  member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
+}
+
+# Secret Manager access for Cloud Run
+resource "google_project_iam_member" "cloud_run_secrets" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.cloud_run_sa.email}"
+}
+
+# ============================================================================
 # BUILD STATUS
 # ============================================================================
 # ✅ COMPLETE: VM service account with minimal permissions
-# ✅ COMPLETE: Storage access for all 13 buckets (5 existing + 8 new)
+# ✅ COMPLETE: Cloud Run service account with required permissions
+# ✅ COMPLETE: Storage access for all buckets
 # ✅ COMPLETE: Cloud SQL database access permissions
-# ✅ COMPLETE: Logging and monitoring permissions
-# 🚀 READY: For secure VM and database deployment
+# ✅ COMPLETE: Secret Manager access for secure credentials
+# 🚀 READY: For Cloud Run deployment

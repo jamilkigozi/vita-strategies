@@ -11,7 +11,7 @@ resource "google_sql_database_instance" "postgresql_primary" {
   name                = "${var.project_name}-postgresql-primary"
   database_version    = "POSTGRES_15"
   region              = var.region
-  deletion_protection = false # Set to true in production
+  deletion_protection = true
 
   settings {
     tier = "db-g1-small" # Start small, can scale up
@@ -48,7 +48,7 @@ resource "google_sql_database_instance" "mysql_primary" {
   name                = "${var.project_name}-mysql-primary"
   database_version    = "MYSQL_8_0"
   region              = var.region
-  deletion_protection = false # Set to true in production
+  deletion_protection = true
 
   settings {
     tier = "db-g1-small"
@@ -80,7 +80,7 @@ resource "google_sql_database_instance" "mariadb_erp" {
   name                = "${var.project_name}-mariadb-erp"
   database_version    = "MYSQL_8_0" # Using MySQL 8.0 as MariaDB equivalent
   region              = var.region
-  deletion_protection = false # Set to true in production
+  deletion_protection = true
 
   settings {
     tier = "db-g1-small"
