@@ -4,71 +4,49 @@
 *.tfvars
 .terraform/
 .terraform.lock.hcl
-terraform.tfplan
-terraform.tfplan.*
 
-# Environment variables
+# Environment files
 .env
-.env.local
-.env.production
-.env.staging
+.env.*
+*.env
+
+# Secrets and keys
+*.key
+*.pem
+*.p12
+*.pfx
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
 # OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
 # Logs
 *.log
 logs/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# Dependencies
+# Node modules
 node_modules/
-vendor/
-*.egg-info/
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
-
-# Build outputs
-dist/
-build/
-*.tar.gz
-*.zip
+*.pyd
+.Python
+env/
+venv/
+.venv/
 
 # Docker
-docker-compose.override.yml
 .dockerignore
-
-# Secrets
-*.pem
-*.key
-*.crt
-*.p12
-*.pfx
-secrets/
-credentials/
 
 # Backup files
 *.bak
 *.backup
-*.tmp
-
-# Local development
-.local/
-.cache/
-temp/
+*~
