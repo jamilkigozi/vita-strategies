@@ -175,6 +175,7 @@ variable "database_passwords" {
     wordpress  = "wordpress_secure_password_123"
     bookstack  = "bookstack_secure_password_123"
     erpnext    = "erpnext_secure_password_123"
+    appsmith   = "appsmith_secure_password_123"
   }
 }
 

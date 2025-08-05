@@ -38,6 +38,16 @@ steps:
     args: ['build', '-t', 'gcr.io/$PROJECT_ID/keycloak:latest', './apps/keycloak']
     id: 'build-keycloak'
 
+  # Build OpenBao
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/openbao:latest', './apps/openbao']
+    id: 'build-openbao'
+
+  # Build Appsmith
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/appsmith:latest', './apps/appsmith']
+    id: 'build-appsmith'
+
   # Push all images
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/wordpress:latest']
@@ -66,6 +76,14 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/keycloak:latest']
     waitFor: ['build-keycloak']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/openbao:latest']
+    waitFor: ['build-openbao']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/appsmith:latest']
+    waitFor: ['build-appsmith']
 
   # Deploy to Cloud Run
   - name: 'gcr.io/cloud-builders/gcloud'
@@ -126,6 +144,24 @@ steps:
     args: [
       'run', 'deploy', 'vita-strategies-keycloak',
       '--image', 'gcr.io/$PROJECT_ID/keycloak:latest',
+      '--region', 'europe-west2',
+      '--platform', 'managed',
+      '--allow-unauthenticated'
+    ]
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: [
+      'run', 'deploy', 'vita-strategies-openbao',
+      '--image', 'gcr.io/$PROJECT_ID/openbao:latest',
+      '--region', 'europe-west2',
+      '--platform', 'managed',
+      '--allow-unauthenticated'
+    ]
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: [
+      'run', 'deploy', 'vita-strategies-appsmith',
+      '--image', 'gcr.io/$PROJECT_ID/appsmith:latest',
       '--region', 'europe-west2',
       '--platform', 'managed',
       '--allow-unauthenticated'

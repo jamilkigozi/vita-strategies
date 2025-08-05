@@ -1,23 +1,18 @@
-# Terraform Main Configuration
-# Purpose: Core GCP infrastructure foundation
-# Dependencies: GCP project with billing enabled
-# Usage: terraform init && terraform plan && terraform apply
-
-# ============================================================================
-# PROVIDER CONFIGURATION
-# ============================================================================
-
 terraform {
   required_version = ">= 1.0"
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "~> 5.0"
-    }
-    cloudflare = {
-      source  = "cloudflare/cloudflare"
       version = "~> 4.0"
     }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "~> 4.0"
+    }
+  }
+  backend "gcs" {
+    bucket = "vita-terraform-state"
+    prefix = "vita-strategies"
   }
 }
 
@@ -27,76 +22,41 @@ provider "google" {
   zone    = var.zone
 }
 
-provider "cloudflare" {
-  api_token = var.cloudflare_api_token
+# Enable required APIs
+resource "google_project_service" "compute_api" {
+  service = "compute.googleapis.com"
+  disable_on_destroy = false
 }
 
-# ============================================================================
-# DATA SOURCES
-# ============================================================================
-
-data "google_project" "current" {
-  project_id = var.project_id
+resource "google_project_service" "sql_api" {
+  service = "sqladmin.googleapis.com"
+  disable_on_destroy = false
 }
 
-# ============================================================================
-# PROJECT & APIS  
-# ============================================================================
-
-# Enable required APIs for the project
-resource "google_project_service" "apis" {
-  for_each = toset([
-    "compute.googleapis.com",
-    "storage.googleapis.com",
-    "iam.googleapis.com",
-    "cloudresourcemanager.googleapis.com",
-    "monitoring.googleapis.com",
-    "logging.googleapis.com",
-    "servicenetworking.googleapis.com",
-    "sqladmin.googleapis.com",
-    "run.googleapis.com",
-    "cloudbuild.googleapis.com",
-    "secretmanager.googleapis.com",
-    "containerregistry.googleapis.com"
-  ])
-
-  project = var.project_id
-  service = each.value
-
-  disable_dependent_services = false
-  disable_on_destroy         = false
+resource "google_project_service" "storage_api" {
+  service = "storage.googleapis.com"
+  disable_on_destroy = false
 }
 
-# ============================================================================
-# NETWORKING
-# ============================================================================
-
-# Use existing VPC network
-data "google_compute_network" "existing_vpc" {
-  name = "vita-strategies-vpc"
+# VPC Network
+resource "google_compute_network" "vpc" {
+  name                    = var.vpc_name
+  auto_create_subnetworks = false
+  routing_mode            = "REGIONAL"
 }
 
-# Create subnet for compute instances in existing VPC
-resource "google_compute_subnetwork" "main" {
-  name          = "${var.project_name}-compute-subnet"
-  ip_cidr_range = "10.0.1.0/24"
+# Subnet
+resource "google_compute_subnetwork" "subnet" {
+  name          = var.subnet_name
+  ip_cidr_range = "10.0.0.0/24"
   region        = var.region
-  network       = data.google_compute_network.existing_vpc.id
-
-  # Enable private Google access
-  private_ip_google_access = true
+  network       = google_compute_network.vpc.id
 }
 
-# Create external IP for the main VM
-resource "google_compute_address" "main" {
-  name   = "${var.project_name}-external-ip"
-  region = var.region
-}
-
-# Firewall rule to allow HTTP/HTTPS traffic
-resource "google_compute_firewall" "web" {
-  name    = "${var.project_name}-allow-web"
-  network = data.google_compute_network.existing_vpc.name
+# Firewall Rules
+resource "google_compute_firewall" "allow_http" {
+  name    = "${var.firewall_name}-http"
+  network = google_compute_network.vpc.name
 
   allow {
     protocol = "tcp"
@@ -107,101 +67,115 @@ resource "google_compute_firewall" "web" {
   target_tags   = ["web-server"]
 }
 
-# Firewall rule to allow application ports
-resource "google_compute_firewall" "apps" {
-  name    = "${var.project_name}-allow-apps"
-  network = data.google_compute_network.existing_vpc.name
+# Compute Instance
+resource "google_compute_instance" "web_server" {
+  name         = "vita-web-server"
+  machine_type = var.instance_type
+  zone         = var.zone
 
-  allow {
-    protocol = "tcp"
-    ports    = var.allowed_ports
+  boot_disk {
+    initialize_params {
+      image = "ubuntu-2004-focal-v20220810"
+      size  = var.disk_size
+      type  = var.disk_type
+    }
   }
 
-  source_ranges = ["0.0.0.0/0"]
-  target_tags   = ["app-server"]
-}
-
-# Firewall rule to allow SSH (restricted to admin IP)
-resource "google_compute_firewall" "ssh" {
-  name    = "${var.project_name}-allow-ssh"
-  network = data.google_compute_network.existing_vpc.name
-
-  allow {
-    protocol = "tcp"
-    ports    = ["22"]
+  network_interface {
+    subnetwork = google_compute_subnetwork.subnet.id
+    access_config {
+      // Ephemeral IP
+    }
   }
 
-  source_ranges = [var.admin_ip]
-  target_tags   = ["ssh-access"]
-}
+  tags = ["web-server", "http-server", "https-server"]
 
-# ============================================================================
-# PRIVATE SERVICE NETWORKING FOR CLOUD SQL
-# ============================================================================
+  metadata_startup_script = file("${path.module}/startup-script.sh")
 
-# Allocate IP range for private services
-resource "google_compute_global_address" "private_ip_address" {
-  name          = "${var.project_name}-private-ip-address"
-  purpose       = "VPC_PEERING"
-  address_type  = "INTERNAL"
-  prefix_length = 16
-  network       = data.google_compute_network.existing_vpc.id
-}
-
-# Create private connection for Cloud SQL
-resource "google_service_networking_connection" "private_vpc_connection" {
-  network                 = data.google_compute_network.existing_vpc.id
-  service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
-
-  depends_on = [
-    google_project_service.apis
-  ]
-}
-
-# ============================================================================
-# LOCALS & DATA SOURCES
-# ============================================================================
-
-locals {
-  # Resource naming convention: vita-strategies-{resource-type}-{environment}
-  common_labels = {
-    project     = var.project_name
-    environment = var.environment
-    managed_by  = "terraform"
-    created_at  = formatdate("YYYY-MM-DD", timestamp())
-  }
-
-  # Service ports mapping
-  service_ports = {
-    ssh        = "22"
-    http       = "80"
-    https      = "443"
-    metabase   = "3000"
-    grafana    = "3001"
-    erpnext    = "8000"
-    mattermost = "8065"
-    windmill   = "8080"
-    appsmith   = "8081"
-    keycloak   = "8180"
-    openbao    = "8200"
+  service_account {
+    email  = google_service_account.vita_sa.email
+    scopes = ["cloud-platform"]
   }
 }
 
-# ============================================================================
-# RESOURCE NAMING CONVENTION
-# ============================================================================
-# Format: vita-strategies-{resource-type}-{environment}
-# Examples:
-# ✅ vita-strategies-vm-production
-# ✅ vita-strategies-bucket-backups-production  
-# ✅ vita-strategies-network-production
+# Cloud SQL Instance
+resource "google_sql_database_instance" "postgres" {
+  name             = "vita-postgres-instance"
+  database_version = var.db_version
+  region           = var.region
+  settings {
+    tier              = var.db_instance_type
+    disk_size         = var.db_disk_size
+    disk_type         = "PD_SSD"
+    availability_type = "ZONAL"
 
-# ============================================================================
-# BUILD STATUS
-# ============================================================================
-# ✅ COMPLETE: Provider configuration
-# ✅ COMPLETE: Project and API configurations  
-# ✅ COMPLETE: Networking resources (VPC, subnet, firewall, external IP)
-# ✅ COMPLETE: Security configurations (firewall rules)
-# 🎯 READY: Move to compute.tf for VM configuration
+    backup_configuration {
+      enabled                        = true
+      start_time                     = "02:00"
+      point_in_time_recovery_enabled = true
+      transaction_log_retention_days = 7
+    }
+
+    ip_configuration {
+      ipv4_enabled    = true
+      private_network = google_compute_network.vpc.id
+    }
+  }
+}
+
+# Storage Bucket
+resource "google_storage_bucket" "storage" {
+  name          = var.bucket_name
+  location      = var.region
+  force_destroy = false
+
+  versioning {
+    enabled = true
+  }
+
+  lifecycle_rule {
+    condition {
+      age = 30
+    }
+    action {
+      type = "Delete"
+    }
+  }
+}
+
+# Service Account
+resource "google_service_account" "vita_sa" {
+  account_id   = "vita-service-account"
+  display_name = "Vita Strategies Service Account"
+}
+
+# IAM Bindings
+resource "google_project_iam_member" "storage_admin" {
+  project = var.project_id
+  role    = "roles/storage.admin"
+  member  = "serviceAccount:${google_service_account.vita_sa.email}"
+}
+
+# SSL Certificate
+resource "google_compute_managed_ssl_certificate" "ssl_cert" {
+  name = var.ssl_cert_name
+
+  managed {
+    domains = [var.domain_name]
+  }
+}
+
+# DNS Zone
+resource "google_dns_managed_zone" "dns_zone" {
+  name     = "vita-dns-zone"
+  dns_name = "${var.domain_name}."
+}
+
+# DNS Records
+resource "google_dns_record_set" "a_record" {
+  name         = google_dns_managed_zone.dns_zone.dns_name
+  managed_zone = google_dns_managed_zone.dns_zone.name
+  type         = "A"
+  ttl          = 300
+  rrdatas      = [google_compute_instance.web_server.network_interface[0].access_config[0].nat_ip]
+}

@@ -1,24 +1,12 @@
 # Terraform
 *.tfstate
 *.tfstate.*
-*.tfvars
 .terraform/
-.terraform.lock.hcl
-
-# Environment files
-.env
-.env.*
-*.env
-
-# Secrets and keys
-*.key
-*.pem
-*.p12
-*.pfx
+terraform.tfvars
 
 # IDE
-.vscode/
 .idea/
+.vscode/
 *.swp
 *.swo
 
@@ -30,6 +18,16 @@ Thumbs.db
 *.log
 logs/
 
+# Environment
+.env
+.env.local
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.tmp
+
 # Node modules
 node_modules/
 
@@ -37,16 +35,16 @@ node_modules/
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
 
 # Docker
 .dockerignore
 
-# Backup files
-*.bak
-*.backup
-*~
+# Secrets
+secrets/
+*.pem
+*.key
+*.crt
+
+# GCP
+.gcp/
+gcp-credentials.json

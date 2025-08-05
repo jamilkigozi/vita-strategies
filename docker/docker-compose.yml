@@ -5,6 +5,37 @@ networks:
     driver: bridge
 
 services:
+  # Database Services
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    restart: unless-stopped
+    networks:
+      - vita-network
+    volumes:
+      - /mnt/buckets/postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: postgres
+    labels:
+      - "traefik.enable=false"
+
+  mariadb:
+    image: mariadb:11.1
+    container_name: mariadb
+    restart: unless-stopped
+    networks:
+      - vita-network
+    volumes:
+      - /mnt/buckets/mariadb:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: ${WORDPRESS_DB_PASSWORD}
+    labels:
+      - "traefik.enable=false"
+
   # Traefik - Reverse Proxy with SSL
   traefik:
     image: traefik:v3.0
@@ -15,7 +46,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"  # Traefik dashboard
+      - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik:/etc/traefik
@@ -47,7 +78,7 @@ services:
       - /mnt/buckets/wordpress:/var/www/html/wp-content
       - /mnt/buckets/assets:/var/www/html/wp-content/uploads
     environment:
-      WORDPRESS_DB_HOST: 172.23.0.6
+      WORDPRESS_DB_HOST: mariadb
       WORDPRESS_DB_NAME: wordpress
       WORDPRESS_DB_USER: wordpress
       WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
@@ -72,7 +103,7 @@ services:
     volumes:
       - /mnt/buckets/erpnext:/home/frappe/frappe-bench/sites
     environment:
-      MARIADB_HOST: 172.23.0.7
+      MARIADB_HOST: mariadb
       MARIADB_ROOT_PASSWORD: ${ERPNEXT_DB_PASSWORD}
       MARIADB_DATABASE: erpnext
       MARIADB_USER: erpnext
@@ -96,7 +127,7 @@ services:
       - /mnt/buckets/mattermost/logs:/mattermost/logs
     environment:
       MM_SQLSETTINGS_DRIVERNAME: postgres
-      MM_SQLSETTINGS_DATASOURCE: postgres://mattermost:${MATTERMOST_DB_PASSWORD}@172.23.0.5:5432/mattermost?sslmode=disable&connect_timeout=10
+      MM_SQLSETTINGS_DATASOURCE: postgres://mattermost:${MATTERMOST_DB_PASSWORD}@postgres:5432/mattermost?sslmode=disable&connect_timeout=10
       MM_SERVICESETTINGS_SITEURL: https://chat.vitastrategies.com
     labels:
       - "traefik.enable=true"
@@ -116,7 +147,7 @@ services:
     environment:
       PUID: 1000
       PGID: 1000
-      DB_HOST: 172.23.0.6
+      DB_HOST: mariadb
       DB_USER: bookstack
       DB_PASS: ${BOOKSTACK_DB_PASSWORD}
       DB_DATABASE: bookstack
@@ -138,7 +169,7 @@ services:
       - /mnt/buckets/monitoring:/var/lib/grafana
     environment:
       GF_DATABASE_TYPE: postgres
-      GF_DATABASE_HOST: 172.23.0.5:5432
+      GF_DATABASE_HOST: postgres:5432
       GF_DATABASE_NAME: grafana
       GF_DATABASE_USER: grafana
       GF_DATABASE_PASSWORD: ${GRAFANA_DB_PASSWORD}
@@ -164,7 +195,7 @@ services:
       MB_DB_PORT: 5432
       MB_DB_USER: metabase
       MB_DB_PASS: ${METABASE_DB_PASSWORD}
-      MB_DB_HOST: 172.23.0.5
+      MB_DB_HOST: postgres
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.metabase.rule=Host(`analytics.vitastrategies.com`)"
@@ -182,7 +213,7 @@ services:
       - /mnt/buckets/auth:/opt/keycloak/data
     environment:
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://172.23.0.5:5432/keycloak
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
       KC_HOSTNAME: auth.vitastrategies.com
@@ -194,3 +225,44 @@ services:
       - "traefik.http.routers.keycloak.rule=Host(`auth.vitastrategies.com`)"
       - "traefik.http.routers.keycloak.tls.certresolver=letsencrypt"
       - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+
+  # OpenBao - Secrets management
+  openbao:
+    image: openbao/openbao:latest
+    container_name: openbao
+    restart: unless-stopped
+    networks:
+      - vita-network
+    volumes:
+      - /mnt/buckets/openbao:/var/lib/openbao
+    environment:
+      OPENBAO_DB_HOST: postgres
+      OPENBAO_DB_PORT: 5432
+      OPENBAO_DB_USER: openbao
+      OPENBAO_DB_PASSWORD: ${OPENBAO_DB_PASSWORD}
+      OPENBAO_DB_NAME: openbao
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.openbao.rule=Host(`vault.vitastrategies.com`)"
+      - "traefik.http.routers.openbao.tls.certresolver=letsencrypt"
+      - "traefik.http.services.openbao.loadbalancer.server.port=8200"
+
+  # Appsmith - Low-code platform
+  appsmith:
+    image: appsmith/appsmith-ce:latest
+    container_name: appsmith
+    restart: unless-stopped
+    networks:
+      - vita-network
+    volumes:
+      - /mnt/buckets/appsmith:/appsmith-stacks/data
+    environment:
+      APPSMITH_MONGODB_URI: mongodb://mongo:27017/appsmith
+      APPSMITH_REDIS_URL: redis://redis:6379
+      APPSMITH_ENCRYPTION_PASSWORD: ${APPSMITH_ENCRYPTION_PASSWORD}
+      APPSMITH_ENCRYPTION_SALT: ${APPSMITH_ENCRYPTION_SALT}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.appsmith.rule=Host(`apps.vitastrategies.com`)"
+      - "traefik.http.routers.appsmith.tls.certresolver=letsencrypt"
+      - "traefik.http.services.appsmith.loadbalancer.server.port=80"
