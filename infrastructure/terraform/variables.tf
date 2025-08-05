@@ -1,6 +1,7 @@
 # Terraform Variables
 # Purpose: Define all configurable parameters for infrastructure
 # Usage: Set values in terraform.tfvars or via command line
+# SECURITY NOTE: Never commit terraform.tfvars to version control
 
 # ============================================================================
 # PROJECT CONFIGURATION
@@ -9,7 +10,6 @@
 variable "project_id" {
   description = "The GCP project ID"
   type        = string
-  default     = "vita-strategies"
 }
 
 variable "project_name" {
@@ -43,7 +43,7 @@ variable "environment" {
 variable "machine_type" {
   description = "GCP machine type for the main VM"
   type        = string
-  default     = "e2-standard-4" # 4 vCPUs, 16GB RAM
+  default     = "e2-standard-4"
 }
 
 variable "disk_size" {
@@ -62,16 +62,28 @@ variable "boot_image" {
 # NETWORKING CONFIGURATION  
 # ============================================================================
 
-variable "subnet_cidr" {
-  description = "CIDR block for the main subnet"
+variable "vpc_cidr" {
+  description = "CIDR block for the VPC"
   type        = string
-  default     = "10.0.0.0/24"
+  default     = "10.0.0.0/16"
 }
 
-variable "allowed_ports" {
-  description = "List of ports to allow in firewall"
-  type        = list(string)
-  default     = ["22", "80", "443", "3000", "3001", "8000", "8065", "8080", "8081", "8180", "8200"]
+variable "public_subnet_cidr" {
+  description = "CIDR block for the public subnet"
+  type        = string
+  default     = "10.0.1.0/24"
+}
+
+variable "private_subnet_cidr" {
+  description = "CIDR block for the private subnet"
+  type        = string
+  default     = "10.0.2.0/24"
+}
+
+variable "database_subnet_cidr" {
+  description = "CIDR block for the database subnet"
+  type        = string
+  default     = "10.0.3.0/24"
 }
 
 # ============================================================================
@@ -81,14 +93,6 @@ variable "allowed_ports" {
 variable "bucket_names" {
   description = "List of storage bucket names"
   type        = list(string)
-  default = [
-    "vita-strategies-erpnext-production",
-    "vita-strategies-analytics-production",
-    "vita-strategies-team-files-production",
-    "vita-strategies-assets-production",
-    "vita-strategies-data-backup-production",
-    "vita-strategies-wordpress-production"
-  ]
 }
 
 variable "storage_class" {
@@ -110,31 +114,26 @@ variable "retention_days" {
 variable "admin_ip" {
   description = "Admin IP address for SSH access (CIDR format)"
   type        = string
-  default     = "0.0.0.0/0" # Replace with your IP in CIDR format
 }
 
 variable "ssh_public_key" {
   description = "SSH public key for VM access"
   type        = string
-  default     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG9lA16xDJFBbLY8m9Luc4dLFWH5XhOJPXZfqjrDHbt2"
 }
 
 variable "domain_name" {
   description = "Main domain name"
   type        = string
-  default     = "vitastrategies.com"
 }
 
 variable "cloudflare_email" {
   description = "Cloudflare account email"
   type        = string
-  default     = "jamil.kigozi@hotmail.com"
 }
 
 variable "cloudflare_api_token" {
   description = "Cloudflare API token for DNS management"
   type        = string
-  default     = "WFcBUZM0zXBEMqx5Vb7_KGqGCAxw4PBL9p5JVvBa"
   sensitive   = true
 }
 
@@ -149,7 +148,6 @@ variable "subdomain_services" {
     keycloak   = "auth"
     mattermost = "chat"
     windmill   = "workflows"
-    bookstack  = "docs"
     wordpress  = "www"
     openbao    = "vault"
   }
@@ -158,25 +156,12 @@ variable "subdomain_services" {
 variable "user_ip" {
   description = "User's public IP address for database access"
   type        = string
-  default     = "0.0.0.0" # Replace with your public IP address
 }
 
 variable "database_passwords" {
   description = "Database passwords for each service"
   type        = map(string)
   sensitive   = true
-  default = {
-    mattermost = "mattermost_secure_password_123"
-    windmill   = "windmill_secure_password_123"
-    metabase   = "metabase_secure_password_123"
-    grafana    = "grafana_secure_password_123"
-    openbao    = "openbao_secure_password_123"
-    keycloak   = "keycloak_secure_password_123"
-    wordpress  = "wordpress_secure_password_123"
-    bookstack  = "bookstack_secure_password_123"
-    erpnext    = "erpnext_secure_password_123"
-    appsmith   = "appsmith_secure_password_123"
-  }
 }
 
 variable "keycloak_admin_user" {
@@ -190,12 +175,70 @@ variable "keycloak_admin_password" {
   description = "Keycloak admin password"
   type        = string
   sensitive   = true
-  default     = "secure_admin_password_123"
 }
 
 # ============================================================================
-# BUILD STATUS
+# DATABASE CONFIGURATION
 # ============================================================================
-# ✅ COMPLETE: All variables defined and configured
-# ✅ COMPLETE: Database passwords and user IP added
-# 🚀 READY: For main.tf configuration
+
+variable "db_version" {
+  description = "PostgreSQL database version"
+  type        = string
+  default     = "POSTGRES_15"
+}
+
+variable "db_instance_type" {
+  description = "Cloud SQL instance type"
+  type        = string
+  default     = "db-f1-micro"
+}
+
+variable "db_disk_size" {
+  description = "Database disk size in GB"
+  type        = number
+  default     = 20
+}
+
+variable "db_backup_enabled" {
+  description = "Enable automated database backups"
+  type        = bool
+  default     = true
+}
+
+variable "db_backup_start_time" {
+  description = "Time when database backup starts (HH:MM format)"
+  type        = string
+  default     = "02:00"
+}
+
+# ============================================================================
+# MONITORING & ALERTING
+# ============================================================================
+
+variable "enable_monitoring" {
+  description = "Enable monitoring and alerting"
+  type        = bool
+  default     = true
+}
+
+variable "notification_email" {
+  description = "Email for monitoring alerts"
+  type        = string
+  default     = ""
+}
+
+# ============================================================================
+# ENCRYPTION CONFIGURATION
+# ============================================================================
+
+variable "enable_encryption" {
+  description = "Enable encryption at rest for all services"
+  type        = bool
+  default     = true
+}
+
+variable "kms_key_rotation_period" {
+  description = "KMS key rotation period in seconds"
+  type        = string
+  default     = "7776000s" # 90 days
+}

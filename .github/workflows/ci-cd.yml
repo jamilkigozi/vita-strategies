@@ -1,42 +1,46 @@
-name: Vita Strategies CI/CD
+name: 'Terraform CI/CD'
 
 on:
   push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
-  lint:
+  terraform:
+    name: 'Terraform'
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Lint Docker Compose files
-        run: |
-          docker-compose -f docker-compose.yml config
 
-  test:
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Test Docker Compose
-        run: |
-          docker-compose -f docker-compose.yml up -d --build
-          sleep 30
-          docker-compose -f docker-compose.yml ps
-          docker-compose -f docker-compose.yml down
+    permissions:
+      contents: 'read'
+      id-token: 'write'
 
-  deploy:
-    runs-on: ubuntu-latest
-    needs: [lint, test]
-    if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Deploy to production
+      - name: 'Checkout'
+        uses: actions/checkout@v3
+
+      - name: 'Google Auth'
+        id: 'auth'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          workload_identity_provider: 'projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ secrets.WIF_POOL_ID }}/providers/${{ secrets.WIF_PROVIDER_ID }}'
+          service_account: '${{ secrets.GCP_SERVICE_ACCOUNT }}'
+
+      - name: 'Terraform Init'
+        run: terraform init
+        working-directory: ./infrastructure/terraform
+
+      - name: 'Terraform Plan'
+        id: 'plan'
+        run: terraform plan -no-color -out=tfplan
+        working-directory: ./infrastructure/terraform
+
+      - name: 'Terraform Apply'
+        run: terraform apply -auto-approve tfplan
+        working-directory: ./infrastructure/terraform
+
+      - name: 'Setup Docker'
+        uses: docker-practice/actions-setup-docker@master
+
+      - name: 'Compile ERPNext Assets'
         run: |
-          echo "Production deployment would happen here"
-          # Add your deployment commands here
+          docker-compose -f infrastructure/docker/docker-compose.yml run --rm erpnext bench build

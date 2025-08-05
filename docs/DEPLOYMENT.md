@@ -22,8 +22,8 @@ Complete deployment procedures for the Vita Strategies microservices platform.
 1. **Configure Terraform Variables**
    ```bash
    cd infrastructure/terraform
-   cp variables.tf.example variables.tf
-   # Edit variables.tf with your configuration
+   cp terraform.tfvars.example terraform.tfvars
+   # Edit terraform.tfvars with your configuration
    ```
 
 2. **Initialize and Deploy Infrastructure**
@@ -46,16 +46,27 @@ Complete deployment procedures for the Vita Strategies microservices platform.
    ssh -i ~/.ssh/vita-strategies appuser@[VM_EXTERNAL_IP]
    ```
 
-2. **Deploy Docker Stack**
+2. **Clone the repository**
+    ```bash
+    git clone https://github.com/your-repo/vita-strategies.git /opt/vita-strategies
+    ```
+
+3. **Configure Environment Variables**
    ```bash
-   cd /opt/vita-strategies
-   sudo docker-compose up -d
+   cd /opt/vita-strategies/docker
+   cp .env.template .env
+   # Edit .env with your secrets
    ```
 
-3. **Verify Services**
+4. **Deploy Docker Stack**
    ```bash
-   sudo docker-compose ps
-   # All services should show "healthy" status
+   ./deploy.sh
+   ```
+
+5. **Verify Services**
+   ```bash
+   docker-compose ps
+   # All services should show "up" status
    ```
 
 ### Phase 3: Service Configuration
@@ -94,9 +105,8 @@ curl -f https://vault.vitastrategies.com
 ### Database Connectivity
 ```bash
 # Test database connections
-sudo docker exec postgres-primary pg_isready
-sudo docker exec mysql-primary mysqladmin ping
-sudo docker exec mariadb-erp mysqladmin ping
+sudo docker exec postgres pg_isready
+sudo docker exec mariadb mysqladmin ping
 ```
 
 ### Monitoring Setup
@@ -109,11 +119,16 @@ sudo docker exec mariadb-erp mysqladmin ping
 
 ### Application Updates
 ```bash
-# Pull latest images
-sudo docker-compose pull
+# Pull latest changes
+cd /opt/vita-strategies
+git pull
 
-# Restart services with zero downtime
-sudo docker-compose up -d --no-deps [service-name]
+# Pull latest images
+cd /opt/vita-strategies/docker
+docker-compose pull
+
+# Restart services
+./deploy.sh
 ```
 
 ### Infrastructure Updates
@@ -126,19 +141,23 @@ terraform apply
 ### Database Migrations
 ```bash
 # Backup before migrations
-sudo ./scripts/backup.sh
+./scripts/backup.sh
 
 # Run service-specific migrations
-sudo docker exec [service-container] [migration-command]
+docker exec [service-container] [migration-command]
 ```
 
 ## 🆘 Rollback Procedures
 
 ### Application Rollback
 ```bash
-# Rollback to previous image version
-sudo docker-compose down
-sudo docker-compose up -d --force-recreate
+# Rollback to previous commit
+cd /opt/vita-strategies
+git checkout <commit-hash>
+
+# Redeploy
+cd /opt/vita-strategies/docker
+./deploy.sh
 ```
 
 ### Infrastructure Rollback
@@ -150,7 +169,7 @@ terraform apply
 
 ### Database Restore
 ```bash
-sudo ./scripts/restore.sh [backup-date]
+./scripts/restore.sh [backup-date]
 ```
 
 ## 📊 Monitoring & Maintenance

@@ -17,6 +17,7 @@ volumes:
   grafana-data:
   keycloak-data:
   openbao-data:
+  erpnext_sites:
 
 services:
   # ============================================================================
@@ -33,6 +34,7 @@ services:
       - ./nginx/sites-enabled:/etc/nginx/sites-enabled:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
       - /var/log/nginx:/var/log/nginx
+      - erpnext_sites:/var/www/html/erpnext:ro
     networks:
       vita-network:
         ipv4_address: 172.20.0.10
@@ -118,6 +120,20 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  mattermost-db:
+    image: postgres:13-alpine
+    container_name: mattermost-db
+    restart: unless-stopped
+    volumes:
+      - mattermost_db_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=mattermost
+      - POSTGRES_PASSWORD=${MATTERMOST_DB_PASSWORD}
+      - POSTGRES_DB=mattermost
+    networks:
+      vita-network:
+        ipv4_address: 172.20.0.41
 
   bookstack:
     image: lscr.io/linuxserver/bookstack:latest
