@@ -99,10 +99,10 @@ services:
     
     # Environment configuration
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_secure_pass}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: erpnext_db
       MYSQL_USER: erpnext_user
-      MYSQL_PASSWORD: ${DB_PASSWORD:-erpnext_secure_pass}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
       MYSQL_CHARACTER_SET_SERVER: utf8mb4
       MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
     

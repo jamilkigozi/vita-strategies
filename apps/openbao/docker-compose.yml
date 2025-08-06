@@ -172,7 +172,7 @@ services:
     # Environment variables
     environment:
       POSTGRES_DB: openbao
-      POSTGRES_USER: openbao_user
+      POSTGRES_USER: ${OPENBAO_DB_USERNAME}
       POSTGRES_PASSWORD: ${OPENBAO_DB_PASSWORD}
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
       PGDATA: /var/lib/postgresql/data/pgdata

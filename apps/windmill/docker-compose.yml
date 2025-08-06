@@ -114,7 +114,7 @@ services:
     environment:
       POSTGRES_DB: windmill_db
       POSTGRES_USER: windmill_user
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-windmill_secure_pass}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
       
     # Configuration options

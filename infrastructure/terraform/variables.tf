@@ -158,17 +158,12 @@ variable "user_ip" {
   type        = string
 }
 
-variable "database_passwords" {
-  description = "Database passwords for each service"
-  type        = map(string)
-  sensitive   = true
-}
+
 
 variable "keycloak_admin_user" {
   description = "Keycloak admin username"
   type        = string
   sensitive   = true
-  default     = "admin"
 }
 
 variable "keycloak_admin_password" {

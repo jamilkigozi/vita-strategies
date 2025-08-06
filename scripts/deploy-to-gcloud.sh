@@ -34,22 +34,22 @@ echo "----------------------"
 echo "Skipping validation checks and proceeding with deployment..."
 print_status 0 "Proceeding with deployment"
 
-# Step 2: Generate secure passwords if needed
+# Fetch secrets from Google Secret Manager
 echo ""
-echo "2️⃣  CHECKING PASSWORDS"
-echo "---------------------"
-
-if grep -q "generate-strong-password-here" infrastructure/terraform/terraform.tfvars; then
-    echo "Generating secure passwords..."
-    ./scripts/generate-passwords.sh
-    print_status 0 "Passwords generated"
+echo "2️⃣  FETCHING SECRETS"
+echo "--------------------"
+echo "Fetching secrets from Google Secret Manager..."
+export GCP_PROJECT_ID=$(gcloud config get-value project) # Ensure project ID is set
+if [ -f "../fetch_secrets.py" ]; then
+    eval "$(python3 ../fetch_secrets.py)"
+    print_status 0 "Secrets fetched and set as environment variables"
 else
-    print_status 0 "Passwords already configured"
+    print_status 1 "Error: fetch_secrets.py not found. Please ensure it's in the project root."
 fi
 
-# Step 3: Initialize Terraform
+# Step 4: Initialize Terraform
 echo ""
-echo "3️⃣  INITIALIZING TERRAFORM"
+echo "4️⃣  INITIALIZING TERRAFORM"
 echo "-------------------------"
 
 cd infrastructure/terraform
@@ -59,9 +59,9 @@ else
     print_status 1 "Terraform initialization failed"
 fi
 
-# Step 4: Plan the deployment
+# Step 5: Plan the deployment
 echo ""
-echo "4️⃣  PLANNING DEPLOYMENT"
+echo "5️⃣  PLANNING DEPLOYMENT"
 echo "----------------------"
 
 if terraform plan -out=tfplan; then
@@ -70,30 +70,24 @@ else
     print_status 1 "Terraform plan failed"
 fi
 
-# Step 5: Apply the Terraform configuration
+# Step 6: Apply the Terraform configuration
 echo ""
-echo "5️⃣  DEPLOYING INFRASTRUCTURE"
+echo "6️⃣  DEPLOYING INFRASTRUCTURE"
 echo "---------------------------"
 
 echo -e "${YELLOW}⚠️  You are about to deploy infrastructure to Google Cloud Platform.${NC}"
 echo -e "${YELLOW}⚠️  This will incur costs on your GCP account.${NC}"
-read -p "Are you sure you want to proceed? (y/n): " -n 1 -r
-echo ""
+echo "Proceeding with auto-approved deployment."
 
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if terraform apply tfplan; then
-        print_status 0 "Infrastructure deployed successfully"
-    else
-        print_status 1 "Infrastructure deployment failed"
-    fi
+if terraform apply -auto-approve tfplan; then
+    print_status 0 "Infrastructure deployed successfully"
 else
-    echo "Deployment cancelled by user."
-    exit 0
+    print_status 1 "Infrastructure deployment failed"
 fi
 
-# Step 6: Output deployment information
+# Step 7: Output deployment information
 echo ""
-echo "6️⃣  DEPLOYMENT INFORMATION"
+echo "7️⃣  DEPLOYMENT INFORMATION"
 echo "-------------------------"
 
 echo "Extracting deployment information..."

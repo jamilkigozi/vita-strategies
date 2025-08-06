@@ -17,6 +17,46 @@ provider "google" {
   zone    = var.zone
 }
 
+# Data sources for fetching secrets from Google Secret Manager
+data "google_secret_manager_secret_version" "admin_ip" {
+  secret = "admin-ip"
+}
+
+data "google_secret_manager_secret_version" "ssh_public_key" {
+  secret = "ssh-public-key"
+}
+
+data "google_secret_manager_secret_version" "cloudflare_api_token" {
+  secret = "cloudflare-api-token"
+}
+
+data "google_secret_manager_secret_version" "db_passwords" {
+  for_each = toset([
+    "mattermost",
+    "windmill",
+    "metabase",
+    "grafana",
+    "openbao",
+    "keycloak",
+    "wordpress",
+    "bookstack",
+    "erpnext"
+  ])
+  secret = "${each.value}-db-password"
+}
+
+data "google_secret_manager_secret_version" "keycloak_admin_user" {
+  secret = "keycloak-admin-user"
+}
+
+data "google_secret_manager_secret_version" "keycloak_admin_password" {
+  secret = "keycloak-admin-password"
+}
+
+data "google_secret_manager_secret_version" "user_ip" {
+  secret = "user-ip"
+}
+
 locals {
   common_labels = {
     project     = var.project_name
@@ -49,7 +89,7 @@ resource "google_compute_firewall" "allow_ssh" {
     ports    = ["22"]
   }
 
-  source_ranges = [var.admin_ip]
+  source_ranges = [data.google_secret_manager_secret_version.admin_ip.secret_data]
   target_tags   = ["web-server"]
 }
 
@@ -101,7 +141,7 @@ resource "google_compute_instance" "main" {
   tags = ["web-server", "app-server", "ssh-access"]
 
   metadata = {
-    ssh-keys = "appuser:${var.ssh_public_key}"
+    ssh-keys = "appuser:${data.google_secret_manager_secret_version.ssh_public_key.secret_data}"
   }
 
   service_account {
@@ -409,55 +449,11 @@ resource "google_sql_user" "mysql_users" {
 resource "google_sql_user" "erpnext_user" {
   name     = "erpnext"
   instance = google_sql_database_instance.mariadb_erp.name
-  password = var.database_passwords["erpnext"]
+  password = data.google_secret_manager_secret_version.db_passwords["erpnext"].secret_data
 }
 
 # Secret Manager Secrets
-resource "google_secret_manager_secret" "db_passwords" {
-  for_each = toset([
-    "wordpress", "erpnext", "mattermost", "windmill", 
-    "metabase", "grafana", "keycloak", "bookstack"
-  ])
 
-  secret_id = "${each.value}-db-password"  
-  
-  replication {
-    auto {}
-  }
-}
-
-resource "google_secret_manager_secret_version" "db_passwords" {
-  for_each = google_secret_manager_secret.db_passwords
-
-  secret      = each.value.id
-  secret_data = var.database_passwords[each.key]
-}
-
-resource "google_secret_manager_secret" "keycloak_admin" {
-  secret_id = "keycloak-admin-user"  
-  
-  replication {
-    auto {}
-  }
-}
-
-resource "google_secret_manager_secret_version" "keycloak_admin" {
-  secret      = google_secret_manager_secret.keycloak_admin.id
-  secret_data = var.keycloak_admin_user
-}
-
-resource "google_secret_manager_secret" "keycloak_admin_password" {
-  secret_id = "keycloak-admin-password"  
-  
-  replication {
-    auto {}
-  }
-}
-
-resource "google_secret_manager_secret_version" "keycloak_admin_password" {
-  secret      = google_secret_manager_secret.keycloak_admin_password.id
-  secret_data = var.keycloak_admin_password
-}
 
 # Outputs
 output "vm_external_ip" {

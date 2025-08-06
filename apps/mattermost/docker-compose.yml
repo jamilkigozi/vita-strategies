@@ -83,7 +83,7 @@ services:
     container_name: mattermost-postgres
     environment:
       POSTGRES_DB: mattermost
-      POSTGRES_USER: mattermost
+      POSTGRES_USER: ${MATTERMOST_DB_USERNAME}
       POSTGRES_PASSWORD: ${MATTERMOST_DB_PASSWORD}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
     
