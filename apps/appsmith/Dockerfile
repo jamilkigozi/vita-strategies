@@ -107,8 +107,6 @@ RUN echo '/var/log/appsmith/*.log {\n\
 }' > /etc/logrotate.d/appsmith
 
 # Environment variables for production
-ENV APPSMITH_INSTALLATION_ID=vita-strategies \
-    APPSMITH_MAIL_ENABLED=true \
     APPSMITH_MAIL_FROM=notifications@vitastrategies.com \
     APPSMITH_REPLY_TO=noreply@vitastrategies.com \
     APPSMITH_MAIL_HOST=smtp.gmail.com \

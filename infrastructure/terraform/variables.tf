@@ -176,6 +176,12 @@ variable "keycloak_admin_password" {
 # DATABASE CONFIGURATION
 # ============================================================================
 
+variable "database_passwords" {
+  description = "Map of database users to their passwords"
+  type        = map(string)
+  sensitive   = true
+}
+
 variable "db_version" {
   description = "PostgreSQL database version"
   type        = string

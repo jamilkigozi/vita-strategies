@@ -32,7 +32,7 @@ create_secret() {
     
     # Create the secret
     echo -n "$secret_value" | gcloud secrets create $secret_name \
-        --data-file=- \
+        --data-file=-\
         --project=$PROJECT_ID
     
     echo "Secret $secret_name created successfully"

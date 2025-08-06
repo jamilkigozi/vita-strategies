@@ -1,0 +1,75 @@
+{
+  "ServiceSettings": {
+    "SiteURL": "${MATTERMOST_URL}",
+    "ListenAddress": ":8065",
+    "MaximumLoginAttempts": 10,
+    "EnableUserAccessTokens": true,
+    "EnableLinkPreviews": true,
+    "EnableSecurityFixAlert": true,
+    "EnableInsecureOutgoingConnections": false
+  },
+  "TeamSettings": {
+    "SiteName": "Vita Strategies",
+    "MaxUsersPerTeam": 50,
+    "EnableTeamCreation": true,
+    "EnableUserCreation": true,
+    "EnableOpenServer": false,
+    "RestrictCreationToDomains": "vitastrategies.com"
+  },
+  "SqlSettings": {
+    "DriverName": "postgres",
+    "DataSource": "${MATTERMOST_DB_URL}",
+    "MaxIdleConns": 20,
+    "MaxOpenConns": 300,
+    "QueryTimeout": 30
+  },
+  "LogSettings": {
+    "EnableConsole": true,
+    "ConsoleLevel": "INFO",
+    "EnableFile": true,
+    "FileLevel": "INFO",
+    "FileLocation": "/var/log/mattermost/mattermost.log"
+  },
+  "PasswordSettings": {
+    "MinimumLength": 8,
+    "Lowercase": true,
+    "Number": true,
+    "Uppercase": true,
+    "Symbol": false
+  },
+  "FileSettings": {
+    "EnableFileAttachments": true,
+    "MaxFileSize": 104857600,
+    "DriverName": "local",
+    "Directory": "/mattermost/data/"
+  },
+  "EmailSettings": {
+    "EnableSignUpWithEmail": true,
+    "EnableSignInWithEmail": true,
+    "RequireEmailVerification": true,
+    "FeedbackName": "Vita Strategies",
+    "FeedbackEmail": "noreply@vitastrategies.com",
+    "SMTPPort": "587",
+    "ConnectionSecurity": "STARTTLS"
+  },
+  "RateLimitSettings": {
+    "Enable": true,
+    "PerSec": 10,
+    "MaxBurst": 100
+  },
+  "PrivacySettings": {
+    "ShowEmailAddress": true,
+    "ShowFullName": true
+  },
+  "SupportSettings": {
+    "TermsOfServiceLink": "https://vitastrategies.com/terms/",
+    "PrivacyPolicyLink": "https://vitastrategies.com/privacy/",
+    "SupportEmail": "support@vitastrategies.com"
+  },
+  "PluginSettings": {
+    "Enable": true,
+    "EnableUploads": true,
+    "EnableHealthCheck": true,
+    "Directory": "./plugins"
+  }
+}
