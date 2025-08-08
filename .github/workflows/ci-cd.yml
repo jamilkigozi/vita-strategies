@@ -1,46 +1,57 @@
-name: 'Terraform CI/CD'
+name: Vita Strategies CI/CD
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  terraform:
-    name: 'Terraform'
+  validate:
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-
+    name: Validate Infrastructure
+    
     steps:
-      - name: 'Checkout'
-        uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.5.0
+    
+    - name: Terraform Format Check
+      run: terraform fmt -check -recursive infrastructure/terraform/
+    
+    - name: Terraform Init
+      run: |
+        cd infrastructure/terraform
+        terraform init -backend=false
+    
+    - name: Terraform Validate
+      run: |
+        cd infrastructure/terraform
+        terraform validate
+    
+    - name: Docker Compose Validate
+      run: docker-compose -f docker-compose.cloudflare.yml config
 
-      - name: 'Google Auth'
-        id: 'auth'
-        uses: 'google-github-actions/auth@v1'
-        with:
-          workload_identity_provider: 'projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ secrets.WIF_POOL_ID }}/providers/${{ secrets.WIF_PROVIDER_ID }}'
-          service_account: '${{ secrets.GCP_SERVICE_ACCOUNT }}'
-
-      - name: 'Terraform Init'
-        run: terraform init
-        working-directory: ./infrastructure/terraform
-
-      - name: 'Terraform Plan'
-        id: 'plan'
-        run: terraform plan -no-color -out=tfplan
-        working-directory: ./infrastructure/terraform
-
-      - name: 'Terraform Apply'
-        run: terraform apply -auto-approve tfplan
-        working-directory: ./infrastructure/terraform
-
-      - name: 'Setup Docker'
-        uses: docker-practice/actions-setup-docker@master
-
-      - name: 'Compile ERPNext Assets'
-        run: |
-          docker-compose -f infrastructure/docker/docker-compose.yml run --rm erpnext bench build
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Security Scan
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'

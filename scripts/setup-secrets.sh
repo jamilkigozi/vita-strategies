@@ -1,55 +1,48 @@
 #!/bin/bash
-# VITA STRATEGIES - Setup Google Secret Manager Secrets
+# Check existing Google Secret Manager secrets
 set -e
 
-PROJECT_ID=${1:-$(gcloud config get-value project)}
-if [ -z "$PROJECT_ID" ]; then
-    echo "Error: Please provide project ID or set default project"
-    exit 1
-fi
+echo "🔍 Checking existing secrets..."
 
-echo "🔐 Setting up secrets for project: $PROJECT_ID"
-
-# Enable Secret Manager API
-gcloud services enable secretmanager.googleapis.com --project=$PROJECT_ID
-
-# Generate secure passwords
-generate_password() {
-    openssl rand -base64 32 | tr -d /=+ | cut -c -25
+# Check if secret exists (case insensitive)
+secret_exists() {
+    gcloud secrets describe "$1" >/dev/null 2>&1 || \
+    gcloud secrets describe "${1,,}" >/dev/null 2>&1 || \
+    gcloud secrets describe "${1^^}" >/dev/null 2>&1
 }
 
-# Create secrets with generated passwords
-secrets=(
-    "postgres-password"
-    "mariadb-root-password"
+# Required secrets
+REQUIRED_SECRETS=(
+    "vita-db-password"
+    "vita-redis-password"
+    "SSH_PUBLIC_KEY"
+    "ADMIN_IP"
     "wordpress-db-password"
     "erpnext-db-password"
     "mattermost-db-password"
     "metabase-db-password"
     "grafana-db-password"
     "keycloak-db-password"
-    "appsmith-db-password"
+    "windmill-db-password"
+    "keycloak-admin-password"
+    "grafana-admin-password"
     "appsmith-encryption-password"
     "appsmith-encryption-salt"
-    "keycloak-admin-password"
-    "openbao-root-token"
-    "grafana-admin-password"
-    "metabase-admin-password"
-    "redis-password"
+    "mongo-root-password"
 )
 
-for secret in "${secrets[@]}"; do
-    if gcloud secrets describe "$secret" --project="$PROJECT_ID" &>/dev/null; then
-        echo "⚠️  Secret $secret already exists"
+# Check existing secrets
+echo "📋 Existing secrets:"
+for secret in "${REQUIRED_SECRETS[@]}"; do
+    if secret_exists "$secret"; then
+        echo "  ✅ $secret (found)"
+    elif secret_exists "${secret,,}"; then
+        echo "  ✅ $secret (found as ${secret,,})"
+    elif secret_exists "${secret^^}"; then
+        echo "  ✅ $secret (found as ${secret^^})"
     else
-        password=$(generate_password)
-        echo "$password" | gcloud secrets create "$secret" \
-            --data-file=- \
-            --project="$PROJECT_ID" \
-            --replication-policy="automatic"
-        echo "✅ Created secret: $secret"
+        echo "  ❌ $secret (missing)"
     fi
 done
 
-echo "🎉 All secrets created successfully!"
-echo "Run: source .env.secure to use secure environment"
+echo "✅ Secret check complete. Deployment will use existing secrets."

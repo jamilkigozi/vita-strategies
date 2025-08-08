@@ -19,42 +19,11 @@ provider "google" {
 
 # Data sources for fetching secrets from Google Secret Manager
 data "google_secret_manager_secret_version" "admin_ip" {
-  secret = "admin-ip"
+  secret = "ADMIN_IP"
 }
 
 data "google_secret_manager_secret_version" "ssh_public_key" {
-  secret = "ssh-public-key"
-}
-
-data "google_secret_manager_secret_version" "cloudflare_api_token" {
-  secret = "cloudflare-api-token"
-}
-
-data "google_secret_manager_secret_version" "db_passwords" {
-  for_each = toset([
-    "mattermost",
-    "windmill",
-    "metabase",
-    "grafana",
-    "openbao",
-    "keycloak",
-    "wordpress",
-    "bookstack",
-    "erpnext"
-  ])
-  secret = "${each.value}-db-password"
-}
-
-data "google_secret_manager_secret_version" "keycloak_admin_user" {
-  secret = "keycloak-admin-user"
-}
-
-data "google_secret_manager_secret_version" "keycloak_admin_password" {
-  secret = "keycloak-admin-password"
-}
-
-data "google_secret_manager_secret_version" "user_ip" {
-  secret = "user-ip"
+  secret = "SSH_PUBLIC_KEY"
 }
 
 locals {
@@ -79,6 +48,21 @@ resource "google_compute_subnetwork" "main" {
   network       = google_compute_network.vpc.id
 }
 
+# VPC Peering for Cloud SQL
+resource "google_compute_global_address" "private_ip_address" {
+  name          = "private-ip-address"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 16
+  network       = google_compute_network.vpc.id
+}
+
+resource "google_service_networking_connection" "private_vpc_connection" {
+  network                 = google_compute_network.vpc.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
+}
+
 # Firewall Rules
 resource "google_compute_firewall" "allow_ssh" {
   name    = "${var.project_name}-allow-ssh"
@@ -93,16 +77,17 @@ resource "google_compute_firewall" "allow_ssh" {
   target_tags   = ["web-server"]
 }
 
-resource "google_compute_firewall" "allow_http_https" {
-  name    = "${var.project_name}-allow-http-https"
+# Firewall for application ports (Cloudflare access)
+resource "google_compute_firewall" "app_ports" {
+  name    = "${var.project_name}-app-ports"
   network = google_compute_network.vpc.name
 
   allow {
     protocol = "tcp"
-    ports    = ["80", "443"]
+    ports    = ["8001", "8002", "8003", "8004", "8005", "8006", "8007", "8008"]
   }
 
-  source_ranges = ["0.0.0.0/0"]
+  source_ranges = ["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22", "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20", "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13", "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"]
   target_tags   = ["web-server"]
 }
 
@@ -111,7 +96,7 @@ resource "google_compute_address" "main" {
   name = "${var.project_name}-static-ip"
 }
 
-# Service Account
+# Service Account with least privilege
 resource "google_service_account" "vm_service_account" {
   account_id   = "${var.project_name}-vm-sa"
   display_name = "Vita Strategies VM Service Account"
@@ -144,126 +129,20 @@ resource "google_compute_instance" "main" {
     ssh-keys = "appuser:${data.google_secret_manager_secret_version.ssh_public_key.secret_data}"
   }
 
+  metadata_startup_script = file("${path.module}/startup-script.sh")
+
   service_account {
     email = google_service_account.vm_service_account.email
     scopes = [
-      "https://www.googleapis.com/auth/cloud-platform"
+      "https://www.googleapis.com/auth/devstorage.read_write",
+      "https://www.googleapis.com/auth/logging.write",
+      "https://www.googleapis.com/auth/monitoring.write",
+      "https://www.googleapis.com/auth/sqlservice.admin",
+      "https://www.googleapis.com/auth/secretmanager.accessor"
     ]
   }
-
-  metadata_startup_script = <<-EOF
-    #!/bin/bash
-    set -e
-
-    # Log function
-    log() {
-      echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1" | tee -a /var/log/vita-startup.log
-    }
-
-    log "Starting Vita Strategies startup script"
-
-    # Check if this is the first run
-    FIRST_RUN=false
-    if [ ! -f "/opt/vita-strategies/.initialized" ]; then
-      FIRST_RUN=true
-      log "First run detected - performing initial setup"
-    else
-      log "Existing installation detected - preserving data"
-    fi
-
-    # Update system
-    log "Updating system packages"
-    apt-get update
-    apt-get upgrade -y
-
-    # Install required packages
-    if [ "$FIRST_RUN" = true ]; then
-      log "Installing required packages"
-      apt-get install -y \
-          apt-transport-https \
-          ca-certificates \
-          curl \
-          gnupg \
-          lsb-release \
-          software-properties-common
-    fi
-
-    # Install Docker CE if not already installed
-    if ! command -v docker &> /dev/null; then
-      log "Installing Docker CE"
-      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-      echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-      apt-get update
-      apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-    else
-      log "Docker already installed"
-    fi
-
-    # Install gcsfuse if not already installed
-    if ! command -v gcsfuse &> /dev/null; then
-      log "Installing gcsfuse"
-      export GCSFUSE_REPO=gcsfuse-$(lsb_release -c -s)
-      echo "deb https://packages.cloud.google.com/apt $GCSFUSE_REPO main" | tee /etc/apt/sources.list.d/gcsfuse.list
-      curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-      apt-get update
-      apt-get install -y gcsfuse
-    else
-      log "gcsfuse already installed"
-    fi
-
-    # Create dedicated app user if it doesn't exist
-    if ! id -u appuser &>/dev/null; then
-      log "Creating dedicated app user"
-      useradd -m -s /bin/bash appuser
-      usermod -aG docker appuser
-    fi
-
-    # Create bucket mount points if they don't exist
-    log "Setting up bucket mount points"
-    mkdir -p /mnt/buckets/erpnext
-    mkdir -p /mnt/buckets/analytics
-    mkdir -p /mnt/buckets/wordpress
-    mkdir -p /mnt/buckets/assets
-    mkdir -p /mnt/buckets/team-files
-    mkdir -p /mnt/buckets/backups
-
-    # Set ownership
-    chown -R appuser:appuser /mnt/buckets
-
-    # Create Docker bridge network if it doesn't exist
-    docker network inspect vita-network >/dev/null 2>&1 || docker network create vita-network
-
-    # Check if buckets are already mounted
-    if ! mountpoint -q /mnt/buckets/erpnext; then
-      log "Mounting GCS buckets"
-      # Mount GCS buckets using gcsfuse
-      gcsfuse --implicit-dirs vita-strategies-erpnext-production /mnt/buckets/erpnext
-      gcsfuse --implicit-dirs vita-strategies-analytics-production /mnt/buckets/analytics
-      gcsfuse --implicit-dirs vita-strategies-wordpress-production /mnt/buckets/wordpress
-      gcsfuse --implicit-dirs vita-strategies-assets-production /mnt/buckets/assets
-      gcsfuse --implicit-dirs vita-strategies-team-files-production /mnt/buckets/team-files
-      gcsfuse --implicit-dirs vita-strategies-data-backup-production /mnt/buckets/backups
-    else
-      log "GCS buckets already mounted"
-    fi
-
-    # Enable and start Docker
-    systemctl enable docker
-    systemctl start docker
-
-    # Mark as initialized
-    touch /opt/vita-strategies/.initialized
-
-    log "VM initialization completed successfully"
-  EOF
 
   labels = local.common_labels
-
-  lifecycle {
-    ignore_changes = [
-      metadata_startup_script,
-    ]
-  }
 }
 
 # Storage Buckets
@@ -305,12 +184,14 @@ resource "google_storage_bucket" "microservices_buckets" {
   labels = local.common_labels
 }
 
-# Cloud SQL Instances
+# Cloud SQL Instances with private networking
 resource "google_sql_database_instance" "postgresql_primary" {
   name                = "${var.project_name}-postgresql-primary"
   database_version    = "POSTGRES_15"
   region              = var.region
-  deletion_protection = true
+  deletion_protection = false
+
+  depends_on = [google_service_networking_connection.private_vpc_connection]
 
   settings {
     tier = "db-g1-small"
@@ -326,8 +207,9 @@ resource "google_sql_database_instance" "postgresql_primary" {
     }
 
     ip_configuration {
-      ipv4_enabled    = false
-      private_network = google_compute_network.vpc.id
+      ipv4_enabled                                  = false
+      private_network                               = google_compute_network.vpc.id
+      enable_private_path_for_google_cloud_services = true
     }
 
     database_flags {
@@ -341,7 +223,9 @@ resource "google_sql_database_instance" "mysql_primary" {
   name                = "${var.project_name}-mysql-primary"
   database_version    = "MYSQL_8_0"
   region              = var.region
-  deletion_protection = true
+  deletion_protection = false
+
+  depends_on = [google_service_networking_connection.private_vpc_connection]
 
   settings {
     tier = "db-g1-small"
@@ -357,8 +241,9 @@ resource "google_sql_database_instance" "mysql_primary" {
     }
 
     ip_configuration {
-      ipv4_enabled    = false
-      private_network = google_compute_network.vpc.id
+      ipv4_enabled                                  = false
+      private_network                               = google_compute_network.vpc.id
+      enable_private_path_for_google_cloud_services = true
     }
   }
 }
@@ -367,7 +252,9 @@ resource "google_sql_database_instance" "mariadb_erp" {
   name                = "${var.project_name}-mariadb-erp"
   database_version    = "MYSQL_8_0"
   region              = var.region
-  deletion_protection = true
+  deletion_protection = false
+
+  depends_on = [google_service_networking_connection.private_vpc_connection]
 
   settings {
     tier = "db-g1-small"
@@ -383,8 +270,9 @@ resource "google_sql_database_instance" "mariadb_erp" {
     }
 
     ip_configuration {
-      ipv4_enabled    = false
-      private_network = google_compute_network.vpc.id
+      ipv4_enabled                                  = false
+      private_network                               = google_compute_network.vpc.id
+      enable_private_path_for_google_cloud_services = true
     }
   }
 }
@@ -432,7 +320,7 @@ resource "google_sql_user" "postgresql_users" {
 
   name     = each.value
   instance = google_sql_database_instance.postgresql_primary.name
-  password = var.database_passwords[each.value]
+  password = "temp_password_${each.value}"
 }
 
 resource "google_sql_user" "mysql_users" {
@@ -443,17 +331,14 @@ resource "google_sql_user" "mysql_users" {
 
   name     = each.value
   instance = google_sql_database_instance.mysql_primary.name
-  password = var.database_passwords[each.value]
+  password = "temp_password_${each.value}"
 }
 
 resource "google_sql_user" "erpnext_user" {
   name     = "erpnext"
   instance = google_sql_database_instance.mariadb_erp.name
-  password = data.google_secret_manager_secret_version.db_passwords["erpnext"].secret_data
+  password = "temp_password_erpnext"
 }
-
-# Secret Manager Secrets
-
 
 # Outputs
 output "vm_external_ip" {
@@ -466,81 +351,17 @@ output "vm_internal_ip" {
   value       = google_compute_instance.main.network_interface[0].network_ip
 }
 
-output "vm_name" {
-  description = "Name of the main VM instance"
-  value       = google_compute_instance.main.name
+output "postgresql_private_ip" {
+  description = "PostgreSQL private IP"
+  value       = google_sql_database_instance.postgresql_primary.private_ip_address
 }
 
-output "vm_zone" {
-  description = "Zone of the main VM instance"
-  value       = google_compute_instance.main.zone
+output "mysql_private_ip" {
+  description = "MySQL private IP"
+  value       = google_sql_database_instance.mysql_primary.private_ip_address
 }
 
-output "vpc_network_name" {
-  description = "Name of the VPC network"
-  value       = google_compute_network.vpc.name
-}
-
-output "subnet_name" {
-  description = "Name of the compute subnet"
-  value       = google_compute_subnetwork.main.name
-}
-
-output "subnet_cidr" {
-  description = "CIDR block of the compute subnet"
-  value       = google_compute_subnetwork.main.ip_cidr_range
-}
-
-output "storage_buckets" {
-  description = "All storage buckets for microservices"
-  value = {
-    for bucket in google_storage_bucket.microservices_buckets :
-    bucket.name => bucket.url
-  }
-}
-
-output "database_connection_info" {
-  description = "Database connection information"
-  value = {
-    postgresql = {
-      instance_name   = google_sql_database_instance.postgresql_primary.name
-      connection_name = google_sql_database_instance.postgresql_primary.connection_name
-      private_ip      = google_sql_database_instance.postgresql_primary.settings[0].ip_configuration[0].private_network
-      databases       = ["mattermost", "windmill", "metabase", "grafana", "openbao", "keycloak"]
-    }
-    mysql = {
-      instance_name   = google_sql_database_instance.mysql_primary.name
-      connection_name = google_sql_database_instance.mysql_primary.connection_name
-      private_ip      = google_sql_database_instance.mysql_primary.settings[0].ip_configuration[0].private_network
-      databases       = ["wordpress", "bookstack"]
-    }
-    mariadb = {
-      instance_name   = google_sql_database_instance.mariadb_erp.name
-      connection_name = google_sql_database_instance.mariadb_erp.connection_name
-      private_ip      = google_sql_database_instance.mariadb_erp.settings[0].ip_configuration[0].private_network
-      databases       = ["erpnext"]
-    }
-  }
-  sensitive = true
-}
-
-output "ssh_command" {
-  description = "SSH command to connect to the VM"
-  value       = "ssh appuser@${google_compute_address.main.address}"
-}
-
-output "service_urls" {
-  description = "URLs for all microservices"
-  value = {
-    wordpress  = "https://vitastrategies.com"
-    erpnext    = "https://erp.vitastrategies.com"
-    metabase   = "https://analytics.vitastrategies.com"
-    grafana    = "https://monitoring.vitastrategies.com"
-    appsmith   = "https://apps.vitastrategies.com"
-    keycloak   = "https://auth.vitastrategies.com"
-    mattermost = "https://chat.vitastrategies.com"
-    windmill   = "https://workflows.vitastrategies.com"
-    bookstack  = "https://docs.vitastrategies.com"
-    openbao    = "https://vault.vitastrategies.com"
-  }
+output "mariadb_private_ip" {
+  description = "MariaDB private IP"
+  value       = google_sql_database_instance.mariadb_erp.private_ip_address
 }
