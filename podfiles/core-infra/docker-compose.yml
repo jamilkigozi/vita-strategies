@@ -1,0 +1,25 @@
+version: '3.8'
+services:
+  traefik:
+    image: traefik:v2.10
+    command:
+      - --providers.file.directory=/etc/traefik/config
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+    volumes:
+      - ./traefik-config:/etc/traefik/config
+      - /var/run/podman/podman.sock:/var/run/docker.sock:ro
+    environment:
+      - OPENBAO_ADDR=${OPENBAO_ADDR}
+    secrets:
+      - cloudflare_api_key
+    networks:
+      - vita-net
+
+secrets:
+  cloudflare_api_key:
+    external: true
+
+networks:
+  vita-net:
+    driver: bridge

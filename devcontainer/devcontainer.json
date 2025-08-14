@@ -1,0 +1,12 @@
+{
+  "name": "Vita Strategies Platform",
+  "settings": { "terminal.integrated.shell.linux": "/bin/bash" },
+  "extensions": [
+    "ms-azuretools.vscode-docker",
+    "redhat.vscode-yaml",
+    "redhat.ansible",
+    "ms-python.python"
+  ],
+  "forwardPorts": [80, 443, 8080, 3000],
+  "remoteUser": "vscode"
+}
